@@ -7,11 +7,59 @@ open Aardvark.SceneGraph
 open Aardvark.Application
 open Aardvark.Application.WinForms
 
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
+open System.Security
+open Microsoft
+
+module Native =
+    [<Literal>]
+    let lib = "MiniCVNative"
+
+    [<DllImport(lib, EntryPoint = "cvRecoverPose"); SuppressUnmanagedCodeSecurity>]
+    extern int cvRecoverPose_(int N, V2d[] pa, V2d[] pb, M33d& rMat, V3d& tVec)
+
+    let recoverPose (a : V2d[]) (b : V2d[]) =
+        let mutable m = M33d.Identity
+        let mutable t = V3d(100,123,432)
+        let res = cvRecoverPose_(a.Length, a, b, &m, &t)
+        (res, m,t)
+
+
 
 [<EntryPoint>]
 let main argv = 
+
+    let rand = RandomSystem()
+
+    let pts = Array.init 100 (fun _ -> rand.UniformV3d(Box3d(-(V3d(0.1,0.1,0.1)),(V3d(0.1,0.1,0.1)))) ) 
+    
+    let frustum = Frustum.perspective 90.0 1.0 1000.0 1.0 |> Frustum.projTrafo
+    let ca = CameraView.lookAt (V3d(1.0,0.0,0.0)) V3d.OOO V3d.OOI |> CameraView.viewTrafo
+    let vpa = ca * frustum
+    
+    let cb = CameraView.lookAt (V3d(1.0, 0.0, 1.0)) V3d.OOI V3d.OOI |> CameraView.viewTrafo
+    let vpb = cb * frustum
+
+    let flip (v : V2d) = V2d(v.X, -v.Y)
+
+    let a = pts |> Array.map (vpa.Forward.TransformPosProj >> Vec.xy >> flip)
+    let b = pts |> Array.map (vpb.Forward.TransformPosProj >> Vec.xy >> flip)
+        
+    let (inliers, R, t) = Native.recoverPose a b
+
+    printfn "is id: %A" (R.IsIdentity(1.0E-8))
+
+    printfn "%d: %A %A" inliers R t
+
+    printfn "trans: %A" (R * t)
+
+    Environment.Exit 0
+    
     Ag.initialize()
     Aardvark.Init()
+
+
 
     use app = new OpenGlApplication()
     let win = app.CreateSimpleRenderWindow()
