@@ -1,8 +1,2 @@
 Aardvark.Base
-Aardvark.Base.Incremental
 Aardvark.Base.FSharp
-
-Aardvark.Base.Rendering
-Aardvark.Application.WinForms.GL
-Aardvark.SceneGraph
-Aardvark.Rendering.NanoVg
