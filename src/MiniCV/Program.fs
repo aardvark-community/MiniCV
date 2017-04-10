@@ -6,20 +6,46 @@ open Aardvark.Base
 open System.Runtime.InteropServices
 open System.Security
 
-module MiniCV =
+#nowarn "9"
+#nowarn "51"
 
+[<StructLayout(LayoutKind.Sequential)>]
+type RecoverPoseConfig  =
+    struct 
+            
+        val mutable public FocalLength      : double
+        val mutable public PrincipalPoint   : V2d
+        val mutable public Probability      : double
+        val mutable public InlierThreshold  : double
+            
+        new(f : double, pp : V2d, p : double, t : double) = 
+            {
+                FocalLength = f
+                PrincipalPoint = pp
+                Probability = p
+                InlierThreshold = t
+            }
+
+        static member Default =
+                RecoverPoseConfig(1.0, V2d.Zero, 0.99999, 0.0001)
+
+    end
+
+module MiniCV =
+        
     module Native =
         [<Literal>]
         let lib = "MiniCVNative"
 
         [<DllImport(lib, EntryPoint = "cvRecoverPose"); SuppressUnmanagedCodeSecurity>]
-        extern int cvRecoverPose_(int N, V2d[] pa, V2d[] pb, M33d& rMat, V3d& tVec)
+        extern int cvRecoverPose_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat, V3d& tVec)
 
-    let recoverPose (a : V2d[]) (b : V2d[]) =
+    let recoverPose (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =
         let mutable m = M33d.Identity
         let mutable t = V3d(100,123,432)
-        let res = Native.cvRecoverPose_(a.Length, a, b, &m, &t)
-        (res, m,t)
+        let mutable cfg = cfg
+        let res = Native.cvRecoverPose_(&&cfg, a.Length, a, b, &m, &t)
+        (res, m, t)
 
 
 
