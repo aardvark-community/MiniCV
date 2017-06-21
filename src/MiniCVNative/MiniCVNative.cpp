@@ -46,6 +46,25 @@ typedef struct {
 
 } RecoverPoseConfig;
 
+DllExport(void) cvRecoverPoses(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat1, Matx33d& rMat2, Vec3d& tVec, uint8_t* ms) {
+	vector<Point2d> a(pa, pa + N);
+	vector<Point2d> b(pb, pb + N);
+
+	Mat E;
+	Mat mask;
+
+	E = findEssentialMat(a, b, config->FocalLength, config->PrincipalPoint, RANSAC, config->Probability, config->InlierThreshold, mask);
+
+	for (int i = 0; i < mask.rows; i++) {
+		ms[i] = mask.at<uint8_t>(i);
+		//printf("fufu1 %d  ", mask.at<uint8_t>(i));
+		//printf("fufu2 %d  \n", ms[i]);
+	}
+
+	decomposeEssentialMat(E, rMat1, rMat2, tVec);
+}
+
+
 DllExport(int) cvRecoverPose(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat, Vec3d& tVec, uint8_t* ms) {
 	vector<Point2d> a(pa, pa + N);
 	vector<Point2d> b(pb, pb + N);
