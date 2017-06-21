@@ -6,7 +6,7 @@
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>7a2659bf-0d51-4428-b237-53927cc42684</ProjectGuid>
-    <OutputType>Library</OutputType>
+    <OutputType>Exe</OutputType>
     <RootNamespace>MiniCV</RootNamespace>
     <AssemblyName>MiniCV</AssemblyName>
     <TargetFrameworkVersion>v4.5</TargetFrameworkVersion>
