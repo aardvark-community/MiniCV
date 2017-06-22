@@ -151,6 +151,8 @@ module CameraPose =
         CameraPose(pose.RotationIndex, s * pose.ScaleSign, pose.Rotation, f * pose.Translation)
 
     let tryFindScaled (srcCam : Camera) (worldObservations : list<V3d * V2d>) (pose : CameraPose) =
+        // todo: remove outliers
+
         let pose0 = pose |> scale 0.0 |> transformation
         let dstCam0 = srcCam |> Camera.transformedView pose0
         
@@ -179,14 +181,29 @@ module CameraPose =
                 // s * (t.xy - obs * t.z) = obs * point.z - point.xy
                 // s = (obs * point.z - point.xy) / (t.xy - obs * t.z)
 
-                let s = (obs * point.Z - point.XY) / (t.XY - obs * t.Z)
-                    
-                [s.X; s.Y]
+                // (point.xy + s * t.xy) / -(point.z + s * t.z) = obs
+                // point.xy + s * t.xy  = -obs * (point.z + s * t.z)
+                // point.xy + s * t.xy  = -obs * point.z - s * obs * t.z
+                // s * t.xy + s * obs * t.z  = -obs * point.z - point.xy
+                // s * (t.xy + obs * t.z)  = -obs * point.z - point.xy
+                
+                // s  = -(obs * point.z + point.xy) / (t.xy + obs * t.z)
+                let z = (obs * point.Z - point.XY) 
+                let n = t.XY - obs * t.Z
+
+                let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
+                //let zt = Fun.IsTiny(z.X, 1e-3) || Fun.IsTiny(z.Y, 1e-3)
+
+                match nt with
+                    | true -> []
+                    | _ -> 
+                        let s = z / n
+                        [s.X; s.Y]
             )
 
+        
         let scaleRange = Range1d scales
-        if scaleRange.Size > 0.1 then
-            //Log.warn "bad scale: %A +/- %A" scaleRange.Center (scaleRange.Size / 2.0)
+        if scaleRange.Size > 0.20 then
             None
         else
             let s = List.average scales
@@ -322,12 +339,25 @@ type TrackId private(id : int) =
 
     static member New = TrackId(Interlocked.Increment(&current))
 
-    module private MapExt =
-        let intersect (l : MapExt<'k, 'a>) (r : MapExt<'k, 'b>) =
-            MapExt.choose2 (fun _ l r -> match l, r with | Some l, Some r -> Some (l,r) | _ -> None) l r
+[<AutoOpen>]
+module ``Move to base once again`` =
+    let inline tup a b = (a,b)
 
-        let values (r : MapExt<'k, 'v>) =
-            r |> MapExt.toSeq |> Seq.map snd
+module private Option =
+    let map2 (f : 'a -> 'b -> 'c) (a : Option<'a>) (b : Option<'b>) =
+        match a with
+            | Some a ->
+                match b with
+                    | Some b -> Some (f a b)
+                    | None -> None
+            | None -> None
+
+module private MapExt =
+    let intersect (l : MapExt<'k, 'a>) (r : MapExt<'k, 'b>) =
+        MapExt.choose2 (constF (Option.map2 tup)) l r
+
+    let values (r : MapExt<'k, 'v>) =
+        r |> MapExt.toSeq |> Seq.map snd
 
 type PhotoNetworkEdge =
     {
@@ -346,33 +376,49 @@ type PhotoNetworkEdge =
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module PhotoNetworkEdge =
 
-    let create (lid : CameraId) (lObs : MapExt<TrackId, V2d>) (rid : CameraId) (rObs : MapExt<TrackId, V2d>) =
-            
-        let bothObs = MapExt.intersect lObs rObs
-        let trackIds, observations = bothObs |> MapExt.toArray |> Array.unzip
-        let l, r = Array.unzip observations
-
-        let poses, mask = MiniCV.recoverPoses2 RecoverPoseConfig.Default l r
-
-        let mutable trackCount = 0
-        let mutable tracks = Set.empty
-        for i in 0 .. mask.Length - 1 do
-            if mask.[i] then
-                tracks <- Set.add trackIds.[i] tracks
-                trackCount <- trackCount + 1
-
+    let empty (lid : CameraId) (rid : CameraId) =
         {
-            left = lid
-            right = rid
-            leftObservations = MapExt.map (fun _ -> fst) bothObs
-            rightObservations = MapExt.map (fun _ -> snd) bothObs
+            left                = lid
+            right               = rid
+            leftObservations    = MapExt.empty
+            rightObservations   = MapExt.empty
 
-            leftToRight = poses
-            rightToLeft = poses |> List.map CameraPose.inverse
+            leftToRight         = []
+            rightToLeft         = []
 
-            trackCount = trackCount
-            tracks = tracks
+            trackCount          = 0
+            tracks              = Set.empty
         }
+
+    let create (lid : CameraId) (lObs : MapExt<TrackId, V2d>) (rid : CameraId) (rObs : MapExt<TrackId, V2d>) =
+        let bothObs = MapExt.intersect lObs rObs
+        if bothObs.Count < 5 then
+            empty lid rid
+        else
+            let trackIds, observations = bothObs |> MapExt.toArray |> Array.unzip
+            let l, r = Array.unzip observations
+
+            let poses, mask = MiniCV.recoverPoses2 RecoverPoseConfig.Default l r
+
+            let mutable trackCount = 0
+            let mutable tracks = Set.empty
+            for i in 0 .. mask.Length - 1 do
+                if mask.[i] then
+                    tracks <- Set.add trackIds.[i] tracks
+                    trackCount <- trackCount + 1
+
+            {
+                left = lid
+                right = rid
+                leftObservations = MapExt.map (fun _ -> fst) bothObs
+                rightObservations = MapExt.map (fun _ -> snd) bothObs
+
+                leftToRight = poses
+                rightToLeft = poses |> List.map CameraPose.inverse
+
+                trackCount = trackCount
+                tracks = tracks
+            }
 
     let inverse (edge : PhotoNetworkEdge) =
         {
@@ -391,6 +437,7 @@ module PhotoNetworkEdge =
 type PhotoNetwork =
     {
         count               : int
+        cost                : float
         cameras             : MapExt<CameraId, Camera>
         edges               : MapExt<CameraId * CameraId, PhotoNetworkEdge>
         points              : MapExt<TrackId, V3d>
@@ -407,43 +454,59 @@ module PhotoNetwork =
         match MapExt.tryFind (lid, rid) network.edges with
             | Some edge ->
                 edge.tracks 
-                |> Seq.map (fun tid ->
+                |> Seq.choose (fun tid ->
                     let l = MapExt.find tid edge.leftObservations |> Camera.unproject1 lCam
                     let r = MapExt.find tid edge.rightObservations |> Camera.unproject1 rCam
-                    tid, Ray.intersection [l;r]
+                    let pt =  Ray.intersection [l;r]
+                    if pt.AnyInfinity || pt.AnyNaN then
+                        None
+                    else
+                        Some (tid, pt)
                 )
                 |> MapExt.ofSeq
 
             | None ->
                 MapExt.empty
 
-    let private withPoints (net : PhotoNetwork) =
-        let mutable measurements = MapExt.empty
+    let private postProcess (net : PhotoNetwork) =
+        let measurements = Dict()
         for (cid, cam) in MapExt.toSeq net.cameras do
             let obs = MapExt.tryFind cid net.observations |> Option.defaultValue MapExt.empty
 
             for (tid, pt) in MapExt.toSeq obs do
-                measurements <- 
-                    measurements |> MapExt.alter tid (fun ms ->
-                        let ms = ms |> Option.defaultValue []
-                        Some ((Camera.unproject1 cam pt) :: ms)
-                    )
+                let r = measurements.GetOrCreate(tid, fun _ -> ref [])
+                r := (Camera.unproject1 cam pt, cam, pt) :: !r
 
         let points = 
-            measurements |> MapExt.choose (fun tid rays ->
-                match rays with
+            measurements |> Dict.toSeq |> Seq.choose (fun (tid, rays) ->
+                match !rays with
                     | [] | [_] -> None
-                    | _ -> 
+                    | rays -> 
+                        let rays = rays |> List.map ( fun (r,_,_) -> r )
                         let pt = Ray.intersection rays
-                        Some pt
-            )
+                        if pt.AnyInfinity || pt.AnyNaN then
+                            None
+                        else
+                            Some (tid, pt)
+            ) |> MapExt.ofSeq
 
-        { net with points = points }
+        let cost = 
+            points |> MapExt.toSeq 
+                   |> Seq.sumBy ( fun (tid, point) ->
+                        let ms = !measurements.GetOrCreate(tid, fun _ -> ref [])
+                        ms |> List.sumBy (fun (_,cam,obs) ->
+                                let real = point |> Camera.project1 cam
+                                Vec.lengthSquared (obs - real)
+                           )
+                   )
+
+        { net with points = points; cost = 0.5 * cost }
 
 
     let empty = 
         {
             count = 0
+            cost = 0.0
             cameras = MapExt.empty
             points = MapExt.empty
             edges = MapExt.empty
@@ -458,7 +521,7 @@ module PhotoNetwork =
         if network.count = 0 then
             Some { 
                 network with
-                    count = network.count + 1
+                    count = 1
                     cameras = MapExt.add cid rootCam network.cameras
                     observations = MapExt.add cid observations network.observations
             }
@@ -482,7 +545,7 @@ module PhotoNetwork =
                         observations = MapExt.add cid observations network.observations
                     }
 
-                Some (withPoints newNetwork)
+                Some (postProcess newNetwork)
             else
                 None
 
@@ -541,7 +604,7 @@ module PhotoNetwork =
                                 observations = MapExt.add cid observations network.observations
                             }
 
-                        Some (withPoints newNetwork)
+                        Some (postProcess newNetwork)
 
                     | [] ->
                         None
@@ -584,7 +647,7 @@ module PhotoNetwork =
                                 observations = MapExt.add c2 observations network.observations
                             }
 
-                        Some (withPoints newNetwork)
+                        Some (postProcess newNetwork)
 
                     | [] ->
                         None 
@@ -597,15 +660,34 @@ module PhotoNetwork =
         match tryAdd cid observations network with
             | Some n -> n
             | _ -> network
+      
+    let ofList ( cams : list<CameraId * MapExt<TrackId, V2d>> ) =
+        
+        let rec epoch network cs nps =
+            match cs with
+            | [] -> network, nps
+            | (cid,obs)::remaining ->
+                match tryAdd cid obs network with
+                | Some n -> epoch n remaining nps
+                | None -> epoch network remaining ((cid,obs)::nps)
+
+        let rec addMany networks cams =
+            match cams with
+            | [] -> networks
+            | _ ->
+                let (network, remaining) = epoch empty cams []
+                addMany (network::networks) remaining
+
+        addMany [] cams
+
+
 
 module Test =
     let rand = RandomSystem()
-
-
     
     let testRays() =
         let points =
-            Array.init 10000 (fun _ ->
+            Array.init 1000 (fun _ ->
                 rand.UniformV3dDirection()
             )
 
@@ -633,38 +715,16 @@ module Test =
         else
             Log.warn "%d Errors" errorCount
 
-        
-    let run() =
-        // init some random points
-        let points =
-            Array.init 10000 (fun _ ->
-                rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
-            )
-
-
+    let testRegister() =
         for i in 1 .. 1000 do
-            // create two random cameras
+
+            let points =
+                Array.init 1000 (fun _ ->
+                    rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
+                )
+
             let c0 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
             let c1 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
-            let c2 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
-            let c3 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
-
-            let tracks = points |> Array.map (fun _ -> TrackId.New)
-
-            let observe (c : Camera) =
-                points |> Seq.mapi (fun i p ->
-                    let tid = tracks.[i]
-                    let c = Camera.project1 c p
-                    tid, c
-                ) |> MapExt.ofSeq
-
-            let net = 
-                PhotoNetwork.empty
-                    |> PhotoNetwork.add CameraId.New (observe c0)
-                    |> PhotoNetwork.add CameraId.New (observe c1)
-                    |> PhotoNetwork.add CameraId.New (observe c2)
-                    |> PhotoNetwork.add CameraId.New (observe c3)
-
 
             // project a set of points
             let p0 = points |> Array.map (Camera.project1 c0)
@@ -723,255 +783,70 @@ module Test =
                                 ()
                             | None ->
                                 let name = CameraPose.name p
-                                Log.warn "%s: bad scale" name
+                                let trafo = CameraPose.transformation p
+                                let test = c0 |> Camera.transformedView trafo
+                                let a = Camera.angles c1 test
+
+                                Log.warn "%s: bad scale: { angles: %A }" name a
 
                     Log.stop()
                 | t ->
-                    Log.line "Success: %A" (List.map CameraPose.name t)
+                    Log.line "Success: %A" (List.map CameraPose.name t)     
+                
+    let run() =
+        let points =
+            Array.init 1000 (fun _ ->
+                rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
+            )
 
+
+        for i in 1 .. 1000 do
+            let cameras = 
+                List.init 10 ( fun _ ->
+                    CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
+                )
+            
+            let cameras2 = 
+                List.init 10 ( fun _ ->
+                    CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
+                )
+
+            let tracks = points |> Array.map (fun _ -> TrackId.New)
+
+            let tracks2 = points |> Array.map (fun _ -> TrackId.New)
+
+            let observe (c : Camera) =
+                points |> Seq.mapi (fun i p ->
+                    let tid = tracks.[i]
+                    let c = Camera.project1 c p
+                    tid, c
+                ) |> MapExt.ofSeq
+
+            let observe2 (c : Camera) =
+                points |> Seq.mapi (fun i p ->
+                    let tid = tracks2.[i]
+                    let c = Camera.project1 c p
+                    tid, c
+                ) |> MapExt.ofSeq
+
+            let cams = cameras |> List.map ( fun (cid, c) -> cid, observe c ) 
+            let cams2 = cameras2 |> List.map ( fun (cid, c) -> cid, observe2 c ) 
+            
+            let nets = cams @ cams2 |> PhotoNetwork.ofList
+
+            Log.start("solved")
+            for net in nets do
+                Log.line "%d: %.6f" net.count net.cost 
+            Log.stop()
 
         ()
-
-open MiniCV
-module bagd =
-    open Aardvark.Base
-    open Aardvark.Base.Rendering
-
-        
-    
-    type AngleAxis private() =
-        static member RotatePoint(aa : V3d, p : V3d) =
-            let theta2 = aa.LengthSquared
-            if not (Fun.IsTiny theta2) then
-                let theta = sqrt theta2
-                let costheta = cos theta
-                let sintheta = sin theta
-                let thetainverse = 1.0 / theta
-
-                let w = aa * thetainverse
-
-                let wCrossP = Vec.cross w p
-                let tmp = (Vec.dot w p) * (1.0 - costheta)
-
-
-                (p * costheta) + (wCrossP * sintheta) + (w * tmp)
-
-            else
-                let wCrossP = Vec.cross aa p
-                p + wCrossP
-
-        static member Trafo(aa : V3d) =
-
-            let x = AngleAxis.RotatePoint(aa, V3d.IOO)
-            let y = AngleAxis.RotatePoint(aa, V3d.OIO)
-            let z = AngleAxis.RotatePoint(aa, V3d.OOI)
-            Trafo3d.FromBasis(x, y, z, V3d.Zero)
-            
-
-
-    let toAxisAngle (m : M44d) =
-        let m33 = m.UpperLeftM33() 
-                
-        let rot = m33 |> Rot3d.FromM33d
-                
-        let mutable axis = V3d.Zero
-        let mutable angle = 0.0
-        rot.ToAxisAngle(&axis, &angle)
-
-        axis * angle
-        
-    type Camera3d =
-        struct
-            val mutable public Position         : V3d
-            val mutable public AngleAxis        : V3d
-
-            member x.ProjectWithDepth(p : V3d) =
-
-                let t = - x.Position
-
-                let pt = p + t
-
-                let p' = AngleAxis.RotatePoint( x.AngleAxis, pt )
-
-                let depth = p'.Z
-
-                let proj = p' / depth
-
-                let ndc = proj.XY
-
-                let ndc = V2d(ndc.X, ndc.Y)
-                
-                ndc, depth
-
-            member x.Project(p : V3d) =
-                x.ProjectWithDepth(p) |> fst
-
-            member x.Unproject (pt : V2d) (depthInCameraSpace : float) =
-                let t = - x.Position
-                let pd = V3d(pt.X, pt.Y, depthInCameraSpace)
-                let pr = AngleAxis.RotatePoint(-x.AngleAxis, pd)
-                pr - t
-
-            member x.GetRay (pt : V2d) =
-                let pt = V2d(pt.X, pt.Y)
-                let point = x.Unproject pt 1.0
-                let dir = (point - x.Position) |> Vec.normalize
-                Ray3d(x.Position, dir)
-
-            member x.ViewAndProjTrafo (farPlaneZ : float) =
-                //let frustum = { left = -1.0; right = 1.0; top = 1.0; bottom = -1.0; near = 1.0; far = farPlaneZ }
-
-                //translation world -> cam
-                let t = -x.Position
-                let trans = Trafo3d.Translation(t)
-
-                //rotation world -> cam
-                let rot = AngleAxis.Trafo(x.AngleAxis)
-                
-                assert(rot.Forward.Det > 0.0)
-
-                //trafo world -> cam
-                let res = trans * rot
-                
-                res,
-                Trafo3d.Identity
-
-            member x.ViewTrafo =
-                x.ViewAndProjTrafo 100.0 |> fst
-
-            member x.ViewProjTrafo (far : float) =
-                let (v,p) = x.ViewAndProjTrafo far
-                v * p
-
-            //transforms this camera with a trafo given in camera coordinates.
-            //example "move this camera 1 unit along its forward direction = translateZ(-1)" //this is negative bc its given in world
-            //        "roll this cam to the right = RotateZ( pi/4)" 
-            member x.TransformedInCameraSpace (trans : V3d, meToNew : M44d) =
-       
-                let forward = -V3d.OOI
-                let up = V3d.OIO
-                let pos = V3d.OOO
-                
-                
-                let forward = meToNew.TransformDir forward
-                let up = meToNew.TransformDir up
-                let trans = meToNew.TransformDir trans
-                
-
-                let forward4 = AngleAxis.RotatePoint(-x.AngleAxis, forward) |> Vec.normalize
-                let up4 = AngleAxis.RotatePoint(-x.AngleAxis, up) |> Vec.normalize
-                let pos4 = AngleAxis.RotatePoint(-x.AngleAxis, trans) + x.Position
-
-                Camera3d.LookAt(pos4, pos4 + forward4, up4)
-
-            static member LookAt(eye : V3d, center : V3d, sky : V3d) : Camera3d =
-
-
-                let F = (center - eye)  |> Vec.normalize
-
-                let R = Vec.cross F sky |> Vec.normalize
-
-                let U = Vec.cross R F   |> Vec.normalize
-                
-                let rot = M44d.FromBasis(R, U, -F, V3d.Zero).Transposed
-
-                
-
-                let aa = (rot |> toAxisAngle)
-                
-
-                let c = eye
-
-                Camera3d(c, aa)
-
-            static member Delta(src : Camera3d, dst : Camera3d) =
-                let src = src.ViewProjTrafo 100.0
-                let dst = dst.ViewProjTrafo 100.0
-                src * dst.Inverse
-
-            new(pos, angleAxis) = 
-                { Position = pos; AngleAxis = angleAxis}
-
-        end
-
-
 
     [<EntryPoint>]
     let main argv = 
         Ag.initialize()
         Aardvark.Init()
-        Test.run()
-        Environment.Exit 0
 
-
-        let c0 = Camera3d.LookAt( V3d(4.0, 5.0, 6.0), V3d.OOO, V3d.OOI )
-
-        for i in 1 .. 10000 do
-            let rand = RandomSystem()
-            let randomRot = M44d.Rotation( rand.UniformV3dDirection(), rand.UniformDouble() * Constant.PiHalf - Constant.PiQuarter )
-            let randomTrans = 3.0 * rand.UniformV3dDirection()
-
-            let c1 = c0.TransformedInCameraSpace(randomTrans, randomRot)
-
-            let test = 
-                c0.ViewTrafo.Backward *
-                randomRot *
-                M44d.Translation(randomTrans) *
-                c1.ViewTrafo.Forward
-
-            let test2 = 
-                c1.ViewTrafo.Backward *
-                M44d.Translation(-randomTrans) *
-                randomRot.Inverse *
-                c0.ViewTrafo.Forward
-
-                //c1.ViewTrafo.Backward *
-                //randomRot.Inverse *
-                //M44d.Translation(randomRot.Inverse.TransformDir(randomTrans)) *
-                //c0.ViewTrafo.Forward
-
-            printfn "%A" test2
-
-            //c0.ViewTrafo.Forward * randomRot = c1.ViewTrafo
-
-
-
-
-            let pts = Array.init 5000 (fun _ -> rand.UniformV3dDirection())
-
-            let obs0 = pts |> Array.map c0.Project
-            let obs1 = pts |> Array.map c1.Project
-
-            let cfg = RecoverPoseConfig.Default
-
-            let ( r1a, r2a, t, _ ) = recoverPoses cfg obs0 obs1
-            let r1 = M44d.op_Explicit r1a.Transposed
-            let r2 = M44d.op_Explicit r2a.Transposed
-            let t = 3.0 * t
-
-            let hyptothesis =
-                [
-                    c0.TransformedInCameraSpace(t, r1)
-                    c0.TransformedInCameraSpace(t, r2)
-                    c0.TransformedInCameraSpace(-t, r1)
-                    c0.TransformedInCameraSpace(-t, r2)
-                ]
-
-            let eps = 0.001
-            let dist = hyptothesis |> List.map (fun ch -> Vec.length (ch.Position - c1.Position)) |> List.min
-            let angle = (acos (abs (Vec.dot t.Normalized randomTrans.Normalized))) * Constant.DegreesPerRadian
-            let angle0 = Rot3d.FromM33d((randomRot * r1.Inverse).UpperLeftM33()).GetEulerAngles().Abs * Constant.DegreesPerRadian
-            let angle1 = Rot3d.FromM33d((randomRot * r2.Inverse).UpperLeftM33()).GetEulerAngles().Abs * Constant.DegreesPerRadian
-
-            if i % 10 = 0 then printfn "%d" i
-
-            if dist > 0.1 || angle > 3.0 || (angle0.AnyGreater 3.0 && angle1.AnyGreater 3.0) then
-                printfn "HATE"
-                printfn "angle: %A" angle
-                printfn "angle0: %A" angle0
-                printfn "angle1: %A" angle1
-            
-                
+        run()
 
         0
 
