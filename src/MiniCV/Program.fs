@@ -1,4 +1,4 @@
-﻿namespace Aardvark.Base
+﻿namespace Aardvark.Reconstruction
 
 open System
 open Aardvark.Base
@@ -42,13 +42,35 @@ type Camera =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Camera =
+    let private projTrafo (n : float) (f : float) : Trafo3d = 
+        Trafo3d(
+            M44d(
+                                1.0,                     0.0,                       0.0,                        0.0,
+                                0.0,                     1.0,                       0.0,                        0.0,
+                                0.0,                     0.0,         (f + n) / (n - f),    (2.0 * f * n) / (n - f),
+                                0.0,                     0.0,                      -1.0,                        0.0
+                ),                                                     
+                                                                       
+            M44d(                                      
+                                1.0,                     0.0,                       0.0,                       0.0,
+                                0.0,                     1.0,                       0.0,                       0.0,
+                                0.0,                     0.0,                       0.0,                      -1.0,
+                                0.0,                     0.0,   (n - f) / (2.0 * f * n),     (f + n) / (2.0 * f * n)
+                )
+        )
+    
     let viewTrafo (c : Camera) =
         let z = -c.forward
         let x = c.right
         let y = c.up
         let p = c.location
         Trafo3d.FromBasis(x,y,z,p).Inverse
-    
+
+    let viewProjTrafo1 (n : float) (f : float) (c : Camera) =
+        let view = viewTrafo c
+        let proj = projTrafo n f
+        view * proj
+
     let transformed (t : Trafo3d) (c : Camera) =
         let fw = t.Forward
         {
@@ -152,62 +174,64 @@ module CameraPose =
 
     let tryFindScaled (srcCam : Camera) (worldObservations : list<V3d * V2d>) (pose : CameraPose) =
         // todo: remove outliers
-
-        let pose0 = pose |> scale 0.0 |> transformation
-        let dstCam0 = srcCam |> Camera.transformedView pose0
+        match worldObservations with
+        | [] -> None
+        | _ ->
+            let pose0 = pose |> scale 0.0 |> transformation
+            let dstCam0 = srcCam |> Camera.transformedView pose0
         
-        let srcView = Camera.viewTrafo srcCam
-        let dst0View = Camera.viewTrafo dstCam0
-        let dst0Observations =
-            worldObservations |> List.map (fun (point, obs) ->
-                dst0View.Forward.TransformPos(point), obs
-            )
+            let srcView = Camera.viewTrafo srcCam
+            let dst0View = Camera.viewTrafo dstCam0
+            let dst0Observations =
+                worldObservations |> List.map (fun (point, obs) ->
+                    dst0View.Forward.TransformPos(point), obs
+                )
 
-        let dst0Translation = 
-            pose.Rotation * pose.Translation
-                |> srcView.Backward.TransformDir
-                |> dst0View.Forward.TransformDir
+            let dst0Translation = 
+                pose.Rotation * pose.Translation
+                    |> srcView.Backward.TransformDir
+                    |> dst0View.Forward.TransformDir
 
 
-        let scales =
-            let t = dst0Translation
-            dst0Observations |> List.collect (fun (point, obs) ->
-                // project(point + s * t) = obs
+            let scales =
+                let t = dst0Translation
+                dst0Observations |> List.collect (fun (point, obs) ->
+                    // project(point + s * t) = obs
                 
-                // (point.xy + s * t.xy) / (point.z + s * t.z) = obs
-                // point.xy + s * t.xy  = obs * (point.z + s * t.z)
-                // point.xy + s * t.xy  = obs * point.z + s * obs * t.z
-                // s * t.xy - s * obs * t.z  = obs * point.z - point.xy
-                // s * (t.xy - obs * t.z) = obs * point.z - point.xy
-                // s = (obs * point.z - point.xy) / (t.xy - obs * t.z)
+                    // (point.xy + s * t.xy) / (point.z + s * t.z) = obs
+                    // point.xy + s * t.xy  = obs * (point.z + s * t.z)
+                    // point.xy + s * t.xy  = obs * point.z + s * obs * t.z
+                    // s * t.xy - s * obs * t.z  = obs * point.z - point.xy
+                    // s * (t.xy - obs * t.z) = obs * point.z - point.xy
+                    // s = (obs * point.z - point.xy) / (t.xy - obs * t.z)
 
-                // (point.xy + s * t.xy) / -(point.z + s * t.z) = obs
-                // point.xy + s * t.xy  = -obs * (point.z + s * t.z)
-                // point.xy + s * t.xy  = -obs * point.z - s * obs * t.z
-                // s * t.xy + s * obs * t.z  = -obs * point.z - point.xy
-                // s * (t.xy + obs * t.z)  = -obs * point.z - point.xy
+                    // (point.xy + s * t.xy) / -(point.z + s * t.z) = obs
+                    // point.xy + s * t.xy  = -obs * (point.z + s * t.z)
+                    // point.xy + s * t.xy  = -obs * point.z - s * obs * t.z
+                    // s * t.xy + s * obs * t.z  = -obs * point.z - point.xy
+                    // s * (t.xy + obs * t.z)  = -obs * point.z - point.xy
                 
-                // s  = -(obs * point.z + point.xy) / (t.xy + obs * t.z)
-                let z = (obs * point.Z - point.XY) 
-                let n = t.XY - obs * t.Z
+                    // s  = -(obs * point.z + point.xy) / (t.xy + obs * t.z)
+                    let z = (obs * point.Z - point.XY) 
+                    let n = t.XY - obs * t.Z
 
-                let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
-                //let zt = Fun.IsTiny(z.X, 1e-3) || Fun.IsTiny(z.Y, 1e-3)
+                    let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
+                    //let zt = Fun.IsTiny(z.X, 1e-3) || Fun.IsTiny(z.Y, 1e-3)
 
-                match nt with
-                    | true -> []
-                    | _ -> 
-                        let s = z / n
-                        [s.X; s.Y]
-            )
+                    match nt with
+                        | true -> []
+                        | _ -> 
+                            let s = z / n
+                            [s.X; s.Y]
+                )
 
         
-        let scaleRange = Range1d scales
-        if scaleRange.Size > 0.20 then
-            None
-        else
-            let s = List.average scales
-            Some (scale -s pose)
+            let scaleRange = Range1d scales
+            if scaleRange.Size > 0.20 then
+                None
+            else
+                let s = List.average scales
+                Some (scale -s pose)
 
     let inverse (pose : CameraPose) =
         // qi = R * (pi + t)
@@ -352,7 +376,7 @@ module private Option =
                     | None -> None
             | None -> None
 
-module private MapExt =
+module MapExt =
     let intersect (l : MapExt<'k, 'a>) (r : MapExt<'k, 'b>) =
         MapExt.choose2 (constF (Option.map2 tup)) l r
 
@@ -434,8 +458,17 @@ module PhotoNetworkEdge =
             tracks              = edge.tracks
         }
 
+type PhotoNetworkConfig =
+    {
+        recoverPoseConfig   : RecoverPoseConfig
+        rootCam             : Camera
+        firstDistance       : float
+    }
+
+[<CustomEquality; NoComparison>]
 type PhotoNetwork =
     {
+        config              : PhotoNetworkConfig
         count               : int
         cost                : float
         cameras             : MapExt<CameraId, Camera>
@@ -444,10 +477,23 @@ type PhotoNetwork =
         observations        : MapExt<CameraId, MapExt<TrackId, V2d>>
     }
 
+    override x.GetHashCode() = HashCode.Combine(x.config.GetHashCode(), x.cameras.GetHashCode())
+    override x.Equals o =
+        match o with
+            | :? PhotoNetwork as o -> x.config = o.config && x.cameras = o.cameras
+            | _ -> false
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module PhotoNetworkConfig =
+    let Default =
+        {
+            recoverPoseConfig   = RecoverPoseConfig.Default
+            rootCam             = Camera.lookAt (V3d(0.0, 5.0, 0.0)) V3d.OOO V3d.OOI
+            firstDistance       = 5.0
+        }
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module PhotoNetwork =
-    let private rootCam = Camera.lookAt (V3d(0,-5,0)) V3d.Zero V3d.OOI
-    let private firstDistance = 5.0
     let private minTrackCount = 5
 
     let private triangulatePoints (lid : CameraId) (lCam : Camera) (rid : CameraId) (rCam : Camera) (network : PhotoNetwork) =
@@ -503,8 +549,9 @@ module PhotoNetwork =
         { net with points = points; cost = 0.5 * cost }
 
 
-    let empty = 
+    let empty cfg = 
         {
+            config = cfg
             count = 0
             cost = 0.0
             cameras = MapExt.empty
@@ -516,13 +563,26 @@ module PhotoNetwork =
     let getObservations (cid : CameraId) (network : PhotoNetwork) =
         MapExt.tryFind cid network.observations |> Option.defaultValue MapExt.empty
 
-    let tryAdd (cid : CameraId) (observations : MapExt<TrackId, V2d>) (network : PhotoNetwork) =
+    let remove (cid : CameraId) (network : PhotoNetwork) =
+        match MapExt.tryFind cid network.cameras with
+            | Some _ ->
+                postProcess 
+                    { network with
+                        count = network.count - 1
+                        cameras = MapExt.remove cid network.cameras
+                        edges = network.edges |> MapExt.filter (fun (l,r) _ -> l <> cid && r <> cid)
+                        observations = MapExt.remove cid network.observations
+                    }
+            | None ->
+                network
 
+    let tryAdd (cid : CameraId) (observations : MapExt<TrackId, V2d>) (network : PhotoNetwork) =
+        let network = remove cid network
         if network.count = 0 then
             Some { 
                 network with
                     count = 1
-                    cameras = MapExt.add cid rootCam network.cameras
+                    cameras = MapExt.add cid network.config.rootCam network.cameras
                     observations = MapExt.add cid observations network.observations
             }
 
@@ -534,7 +594,7 @@ module PhotoNetwork =
 
             if edge.trackCount >= minTrackCount then
                 let camera = 
-                    let t = edge.leftToRight |> List.head |> CameraPose.scale firstDistance |> CameraPose.transformation
+                    let t = edge.leftToRight |> List.head |> CameraPose.scale network.config.firstDistance |> CameraPose.transformation
                     Camera.transformedView t parent
 
                 let newNetwork =
@@ -563,12 +623,20 @@ module PhotoNetwork =
                 let c0 = network.cameras |> MapExt.remove c1 |> MapExt.toSeq |> Seq.head |> fst
                 let e01 = MapExt.find (c0, c1) network.edges
 
-                let cam0 = rootCam
+                let cam0 = network.config.rootCam
+
+                let e01Poses =
+                        e01.leftToRight |> List.collect (fun p ->
+                            [
+                                p |> CameraPose.scale network.config.firstDistance  
+                                p |> CameraPose.scale -network.config.firstDistance    
+                            ]
+                        )
 
                 let configurations = 
-                    e01.leftToRight |> List.collect (fun p01 ->
+                    e01Poses |> List.collect (fun p01 ->
                         let cam1 = 
-                            let t = p01 |> CameraPose.scale firstDistance |> CameraPose.transformation
+                            let t = p01 |> CameraPose.transformation
                             Camera.transformedView t cam0
 
                         let points =
@@ -577,16 +645,23 @@ module PhotoNetwork =
                                 |> MapExt.toList
                                 |> List.map snd
 
+                        let passt =
+                            points |> List.forall ( fun (p,_) -> Vec.dot (p - (cam1.location)).Normalized cam1.forward >= 0.0 )
+                        
 
-                        e12.leftToRight |> List.collect (fun p12 ->
-                            match CameraPose.tryFindScaled cam1 points p12 with
-                                | Some p12 ->
-                                    let cam2 = Camera.transformedView (CameraPose.transformation p12) cam1
-                                    [(cam0, cam1, cam2)]
+                        if passt then
+                            e12.leftToRight |> List.collect (fun p12 ->
+                                match CameraPose.tryFindScaled cam1 points p12 with
+                                    | Some p12 ->
+                                        let cam2 = Camera.transformedView (CameraPose.transformation p12) cam1
+                                    
+                                        [(cam0, cam1, cam2)]
 
-                                | None ->
-                                    []
-                        )
+                                    | None ->
+                                        []
+                            )
+                        else
+                            []
                     )
 
 
@@ -661,7 +736,7 @@ module PhotoNetwork =
             | Some n -> n
             | _ -> network
       
-    let ofList ( cams : list<CameraId * MapExt<TrackId, V2d>> ) =
+    let ofList (cfg : PhotoNetworkConfig) ( cams : list<CameraId * MapExt<TrackId, V2d>> ) =
         
         let rec epoch network cs nps =
             match cs with
@@ -675,182 +750,16 @@ module PhotoNetwork =
             match cams with
             | [] -> networks
             | _ ->
-                let (network, remaining) = epoch empty cams []
+                let (network, remaining) = epoch (empty cfg) cams []
                 addMany (network::networks) remaining
 
         addMany [] cams
-
-
-
-module Test =
-    let rand = RandomSystem()
-    
-    let testRays() =
-        let points =
-            Array.init 1000 (fun _ ->
-                rand.UniformV3dDirection()
-            )
-
-
-        let c0 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI
-        let c1 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI
-
-        let p0 = points |> Array.map (Camera.project1 c0)
-        let p1 = points |> Array.map (Camera.project1 c1)
-
-        let r0 = p0 |> Array.map (Camera.unproject1 c0)
-        let r1 = p1 |> Array.map (Camera.unproject1 c1)
-
-        let results = 
-            Array.zip r0 r1
-                |> Array.map (fun (l,r) -> Ray.intersection [l;r])
-
-        let errorCount =
-            Array.zip points results
-                |> Array.filter (fun (pReal, pObs) -> not (V3d.ApproxEqual(pReal, pObs, 1.0E-10)))
-                |> Array.length
-
-        if errorCount = 0 then
-            Log.line "Success"
-        else
-            Log.warn "%d Errors" errorCount
-
-    let testRegister() =
-        for i in 1 .. 1000 do
-
-            let points =
-                Array.init 1000 (fun _ ->
-                    rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
-                )
-
-            let c0 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
-            let c1 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
-
-            // project a set of points
-            let p0 = points |> Array.map (Camera.project1 c0)
-            let p1 = points |> Array.map (Camera.project1 c1)
-
-            // recover the possible poses from 2D observations
-            let (poses, mask) = MiniCV.recoverPoses2 RecoverPoseConfig.Default p0 p1
-
-            // use the real points as reference-system for the scale
-            let observations = 
-                mask 
-                |> Seq.mapi (fun i m ->
-                    if m then Some (points.[i], p1.[i])
-                    else None
-                )
-                |> Seq.choose id
-                |> Seq.toList
-
-
-            // find all poses that agree with the 3D points
-            let properPoses =
-                poses |> List.choose (fun pose ->
-                    // try to determine a scale for the pose-translation (based on the 3D points)
-                    match CameraPose.tryFindScaled c0 observations pose with
-                        | Some pose ->
-
-                            let name = pose |> CameraPose.name
-                            let trafo = pose |> CameraPose.transformation
-                            
-                            // create the transformed camera (which should be equal to c1)
-                            let test = c0 |> Camera.transformedView trafo
-
-                            // if the test-camera is equal to c1 return the pose 
-                            if Camera.approxEqual 0.01 0.01 c1 test then
-                                Some pose
-                            else
-                                None
-                        | None ->
-                            None
-                )
-
-            match properPoses with
-                | [] ->
-                    
-                    Log.start "Error"
-                    let observations = Array.zip points p1 |> Array.toList
-                    for p in poses do
-                        match CameraPose.tryFindScaled c0 observations p with
-                            | Some p -> 
-                                let name = CameraPose.name p
-                                let trafo = CameraPose.transformation p
-                                let test = c0 |> Camera.transformedView trafo
-                                let a = Camera.angles c1 test
-                                let d = Camera.distance c1 test
-                                Log.warn "%s: { angles: %A; distance: %A }" name a d
-                                ()
-                            | None ->
-                                let name = CameraPose.name p
-                                let trafo = CameraPose.transformation p
-                                let test = c0 |> Camera.transformedView trafo
-                                let a = Camera.angles c1 test
-
-                                Log.warn "%s: bad scale: { angles: %A }" name a
-
-                    Log.stop()
-                | t ->
-                    Log.line "Success: %A" (List.map CameraPose.name t)     
-                
-    let run() =
-        let points =
-            Array.init 1000 (fun _ ->
-                rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
-            )
-
-
-        for i in 1 .. 1000 do
-            let cameras = 
-                List.init 10 ( fun _ ->
-                    CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
-                )
-            
-            let cameras2 = 
-                List.init 10 ( fun _ ->
-                    CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
-                )
-
-            let tracks = points |> Array.map (fun _ -> TrackId.New)
-
-            let tracks2 = points |> Array.map (fun _ -> TrackId.New)
-
-            let observe (c : Camera) =
-                points |> Seq.mapi (fun i p ->
-                    let tid = tracks.[i]
-                    let c = Camera.project1 c p
-                    tid, c
-                ) |> MapExt.ofSeq
-
-            let observe2 (c : Camera) =
-                points |> Seq.mapi (fun i p ->
-                    let tid = tracks2.[i]
-                    let c = Camera.project1 c p
-                    tid, c
-                ) |> MapExt.ofSeq
-
-            let cams = cameras |> List.map ( fun (cid, c) -> cid, observe c ) 
-            let cams2 = cameras2 |> List.map ( fun (cid, c) -> cid, observe2 c ) 
-            
-            let nets = cams @ cams2 |> PhotoNetwork.ofList
-
-            Log.start("solved")
-            for net in nets do
-                Log.line "%d: %.6f" net.count net.cost 
-            Log.stop()
-
-        ()
-
-    [<EntryPoint>]
-    let main argv = 
-        Ag.initialize()
-        Aardvark.Init()
-
-        run()
-
-        0
-
- 
+        
+    let transformed (t : Trafo3d) (net : PhotoNetwork) =
+        { net with
+            cameras = net.cameras |> MapExt.map (fun _ -> Camera.transformed t)
+            points = net.points |> MapExt.map (fun _ -> t.Forward.TransformPos)
+        }
 
 
 

@@ -2,9 +2,14 @@ framework: net45
 source https://api.nuget.org/v3/index.json
 source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
 
-nuget Aardvark.Base                        < 4.0.0 
-nuget Aardvark.Base.FSharp                 < 4.0.0 
+nuget Aardvark.Base                        >= 3.0.25 < 4.0.0 
+nuget Aardvark.Base.FSharp                 >= 3.0.25 < 4.0.0 
 
+nuget Aardvark.Base.Rendering              ~> 3.2.0
+nuget Aardvark.Application.WinForms.GL     ~> 3.2.0
+nuget Aardvark.SceneGraph                  ~> 3.2.0
+nuget Aardvark.SceneGraph.IO               ~> 3.2.0
+nuget Aardvark.Rendering.Text              ~> 3.2.0
 
 group Build
 framework: net45
