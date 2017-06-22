@@ -172,10 +172,10 @@ module CameraPose =
         let s = sign f
         CameraPose(pose.RotationIndex, s * pose.ScaleSign, pose.Rotation, f * pose.Translation)
 
-    let tryFindScaled (srcCam : Camera) (worldObservations : list<V3d * V2d>) (pose : CameraPose) =
+    let findScaled (srcCam : Camera) (worldObservations : list<V3d * V2d>) (pose : CameraPose) =
         // todo: remove outliers
         match worldObservations with
-        | [] -> None
+        | [] -> Double.PositiveInfinity, CameraPose()
         | _ ->
             let pose0 = pose |> scale 0.0 |> transformation
             let dstCam0 = srcCam |> Camera.transformedView pose0
@@ -225,13 +225,9 @@ module CameraPose =
                             [s.X; s.Y]
                 )
 
-        
             let scaleRange = Range1d scales
-            if scaleRange.Size > 0.20 then
-                None
-            else
-                let s = List.average scales
-                Some (scale -s pose)
+            let s = List.average scales
+            scaleRange.Size, (scale -s pose)
 
     let inverse (pose : CameraPose) =
         // qi = R * (pi + t)
@@ -463,6 +459,7 @@ type PhotoNetworkConfig =
         recoverPoseConfig   : RecoverPoseConfig
         rootCam             : Camera
         firstDistance       : float
+        locationTolerance   : float
     }
 
 [<CustomEquality; NoComparison>]
@@ -490,6 +487,7 @@ module PhotoNetworkConfig =
             recoverPoseConfig   = RecoverPoseConfig.Default
             rootCam             = Camera.lookAt (V3d(0.0, 5.0, 0.0)) V3d.OOO V3d.OOI
             firstDistance       = 5.0
+            locationTolerance   = 2.0
         }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -651,14 +649,10 @@ module PhotoNetwork =
 
                         if passt then
                             e12.leftToRight |> List.collect (fun p12 ->
-                                match CameraPose.tryFindScaled cam1 points p12 with
-                                    | Some p12 ->
-                                        let cam2 = Camera.transformedView (CameraPose.transformation p12) cam1
+                                let (cost, p12) =CameraPose.findScaled cam1 points p12
+                                let cam2 = Camera.transformedView (CameraPose.transformation p12) cam1
                                     
-                                        [(cam0, cam1, cam2)]
-
-                                    | None ->
-                                        []
+                                [(cost, cam0, cam1, cam2)]
                             )
                         else
                             []
@@ -666,23 +660,26 @@ module PhotoNetwork =
 
 
                 match configurations with
-                    | (cam0, cam1, cam2) :: _ ->
+                    | [] -> None
+                    | l ->
+                        let (cost, cam0, cam1, cam2) = List.minBy (fun (c,_,_,_) -> c) l
                         
-                        let forwardEdges = candidates
-                        let backwardEdges = candidates |> MapExt.toSeq |> Seq.map (fun ((l,r),e) -> (r,l), PhotoNetworkEdge.inverse e) |> MapExt.ofSeq
+                        if cost > network.config.locationTolerance then
+                            None
+                        else
+                            let forwardEdges = candidates
+                            let backwardEdges = candidates |> MapExt.toSeq |> Seq.map (fun ((l,r),e) -> (r,l), PhotoNetworkEdge.inverse e) |> MapExt.ofSeq
 
-                        let newNetwork =
-                            { network with
-                                count = 3
-                                cameras = MapExt.ofList [c0, cam0; c1, cam1; c2, cam2]
-                                edges = MapExt.union network.edges (MapExt.union forwardEdges backwardEdges)
-                                observations = MapExt.add cid observations network.observations
-                            }
+                            let newNetwork =
+                                { network with
+                                    count = 3
+                                    cameras = MapExt.ofList [c0, cam0; c1, cam1; c2, cam2]
+                                    edges = MapExt.union network.edges (MapExt.union forwardEdges backwardEdges)
+                                    observations = MapExt.add cid observations network.observations
+                                }
 
-                        Some (postProcess newNetwork)
+                            Some (postProcess newNetwork)
 
-                    | [] ->
-                        None
             else
                 None
 
@@ -700,33 +697,30 @@ module PhotoNetwork =
                 let points = MapExt.intersect network.points observations |> MapExt.toList |> List.map snd
                 let cam1 = MapExt.find c1 network.cameras
                 let configurations =
-                    e12.leftToRight |> List.choose (fun p12 ->
-                        match CameraPose.tryFindScaled cam1 points p12 with
-                            | Some e12 ->
-                                Camera.transformedView (CameraPose.transformation e12) cam1 |> Some
-                            | _ ->
-                                None
+                    e12.leftToRight |> List.map (fun p12 ->
+                        let (cost, e12) = CameraPose.findScaled cam1 points p12
+                        cost, Camera.transformedView (CameraPose.transformation e12) cam1
                     )
 
                 match configurations with
-                    | cam2 :: _ ->
-                        
-                        let forwardEdges = candidates
-                        let backwardEdges = candidates |> MapExt.toSeq |> Seq.map (fun ((l,r),e) -> (r,l), PhotoNetworkEdge.inverse e) |> MapExt.ofSeq
+                    | [] -> None
+                    | l ->
+                        let (cost, cam2) = List.minBy (fun (c,_) -> c) l
+                        if cost > network.config.locationTolerance then
+                            None
+                        else
+                            let forwardEdges = candidates
+                            let backwardEdges = candidates |> MapExt.toSeq |> Seq.map (fun ((l,r),e) -> (r,l), PhotoNetworkEdge.inverse e) |> MapExt.ofSeq
 
-                        let newNetwork =
-                            { network with
-                                count = network.count + 1
-                                cameras = MapExt.add c2 cam2 network.cameras
-                                edges = MapExt.union network.edges (MapExt.union forwardEdges backwardEdges)
-                                observations = MapExt.add c2 observations network.observations
-                            }
+                            let newNetwork =
+                                { network with
+                                    count = network.count + 1
+                                    cameras = MapExt.add c2 cam2 network.cameras
+                                    edges = MapExt.union network.edges (MapExt.union forwardEdges backwardEdges)
+                                    observations = MapExt.add c2 observations network.observations
+                                }
 
-                        Some (postProcess newNetwork)
-
-                    | [] ->
-                        None 
-
+                            Some (postProcess newNetwork)
 
             else
                 None
@@ -738,19 +732,26 @@ module PhotoNetwork =
       
     let ofList (cfg : PhotoNetworkConfig) ( cams : list<CameraId * MapExt<TrackId, V2d>> ) =
         
-        let rec epoch network cs nps =
+        let rec epoch network cs ps nps =
             match cs with
-            | [] -> network, nps
+            | [] -> 
+                if ps > 0 then
+                    epoch network nps 0 []
+                else
+                    network, ps, nps
+
             | (cid,obs)::remaining ->
                 match tryAdd cid obs network with
-                | Some n -> epoch n remaining nps
-                | None -> epoch network remaining ((cid,obs)::nps)
+                | Some n -> 
+                    epoch n remaining (ps+1) nps
+                | None -> 
+                    epoch network remaining ps ((cid,obs)::nps)
 
         let rec addMany networks cams =
             match cams with
             | [] -> networks
             | _ ->
-                let (network, remaining) = epoch (empty cfg) cams []
+                let (network, good, remaining) = epoch (empty cfg) cams 0 []
                 addMany (network::networks) remaining
 
         addMany [] cams

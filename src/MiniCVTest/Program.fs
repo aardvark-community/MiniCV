@@ -40,85 +40,85 @@ let testRays() =
         Log.line "Success"
     else
         Log.warn "%d Errors" errorCount
-
-let testRegister() =
-    for i in 1 .. 1000 do
-
-        let points =
-            Array.init 1000 (fun _ ->
-                rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
-            )
-
-        let c0 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
-        let c1 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
-
-        // project a set of points
-        let p0 = points |> Array.map (Camera.project1 c0)
-        let p1 = points |> Array.map (Camera.project1 c1)
-
-        // recover the possible poses from 2D observations
-        let (poses, mask) = MiniCV.recoverPoses2 RecoverPoseConfig.Default p0 p1
-
-        // use the real points as reference-system for the scale
-        let observations = 
-            mask 
-            |> Seq.mapi (fun i m ->
-                if m then Some (points.[i], p1.[i])
-                else None
-            )
-            |> Seq.choose id
-            |> Seq.toList
-
-
-        // find all poses that agree with the 3D points
-        let properPoses =
-            poses |> List.choose (fun pose ->
-                // try to determine a scale for the pose-translation (based on the 3D points)
-                match CameraPose.tryFindScaled c0 observations pose with
-                    | Some pose ->
-
-                        let name = pose |> CameraPose.name
-                        let trafo = pose |> CameraPose.transformation
-                            
-                        // create the transformed camera (which should be equal to c1)
-                        let test = c0 |> Camera.transformedView trafo
-
-                        // if the test-camera is equal to c1 return the pose 
-                        if Camera.approxEqual 0.01 0.01 c1 test then
-                            Some pose
-                        else
-                            None
-                    | None ->
-                        None
-            )
-
-        match properPoses with
-            | [] ->
-                    
-                Log.start "Error"
-                let observations = Array.zip points p1 |> Array.toList
-                for p in poses do
-                    match CameraPose.tryFindScaled c0 observations p with
-                        | Some p -> 
-                            let name = CameraPose.name p
-                            let trafo = CameraPose.transformation p
-                            let test = c0 |> Camera.transformedView trafo
-                            let a = Camera.angles c1 test
-                            let d = Camera.distance c1 test
-                            Log.warn "%s: { angles: %A; distance: %A }" name a d
-                            ()
-                        | None ->
-                            let name = CameraPose.name p
-                            let trafo = CameraPose.transformation p
-                            let test = c0 |> Camera.transformedView trafo
-                            let a = Camera.angles c1 test
-
-                            Log.warn "%s: bad scale: { angles: %A }" name a
-
-                Log.stop()
-            | t ->
-                Log.line "Success: %A" (List.map CameraPose.name t)     
-                
+//
+//let testRegister() =
+//    for i in 1 .. 1000 do
+//
+//        let points =
+//            Array.init 1000 (fun _ ->
+//                rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
+//            )
+//
+//        let c0 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
+//        let c1 = Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) V3d.Zero V3d.OOI
+//
+//        // project a set of points
+//        let p0 = points |> Array.map (Camera.project1 c0)
+//        let p1 = points |> Array.map (Camera.project1 c1)
+//
+//        // recover the possible poses from 2D observations
+//        let (poses, mask) = MiniCV.recoverPoses2 RecoverPoseConfig.Default p0 p1
+//
+//        // use the real points as reference-system for the scale
+//        let observations = 
+//            mask 
+//            |> Seq.mapi (fun i m ->
+//                if m then Some (points.[i], p1.[i])
+//                else None
+//            )
+//            |> Seq.choose id
+//            |> Seq.toList
+//
+//
+//        // find all poses that agree with the 3D points
+//        let properPoses =
+//            poses |> List.choose (fun pose ->
+//                // try to determine a scale for the pose-translation (based on the 3D points)
+//                match CameraPose.tryFindScaled c0 observations pose with
+//                    | Some pose ->
+//
+//                        let name = pose |> CameraPose.name
+//                        let trafo = pose |> CameraPose.transformation
+//                            
+//                        // create the transformed camera (which should be equal to c1)
+//                        let test = c0 |> Camera.transformedView trafo
+//
+//                        // if the test-camera is equal to c1 return the pose 
+//                        if Camera.approxEqual 0.01 0.01 c1 test then
+//                            Some pose
+//                        else
+//                            None
+//                    | None ->
+//                        None
+//            )
+//
+//        match properPoses with
+//            | [] ->
+//                    
+//                Log.start "Error"
+//                let observations = Array.zip points p1 |> Array.toList
+//                for p in poses do
+//                    match CameraPose.tryFindScaled c0 observations p with
+//                        | Some p -> 
+//                            let name = CameraPose.name p
+//                            let trafo = CameraPose.transformation p
+//                            let test = c0 |> Camera.transformedView trafo
+//                            let a = Camera.angles c1 test
+//                            let d = Camera.distance c1 test
+//                            Log.warn "%s: { angles: %A; distance: %A }" name a d
+//                            ()
+//                        | None ->
+//                            let name = CameraPose.name p
+//                            let trafo = CameraPose.transformation p
+//                            let test = c0 |> Camera.transformedView trafo
+//                            let a = Camera.angles c1 test
+//
+//                            Log.warn "%s: bad scale: { angles: %A }" name a
+//
+//                Log.stop()
+//            | t ->
+//                Log.line "Success: %A" (List.map CameraPose.name t)     
+//                
 let testNetworks() =
     let points =
         Array.init 1000 (fun _ ->
