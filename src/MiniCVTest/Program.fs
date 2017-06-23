@@ -452,6 +452,12 @@ let renderNetwork () =
 
     win.Run()
 
+let renderGraphical() =
+    
+    ()
+
+
+
 
 [<EntryPoint>]
 let main argv = 

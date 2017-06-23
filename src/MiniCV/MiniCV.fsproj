@@ -49,7 +49,12 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Program.fs" />
+    <Compile Include="Utilities.fs" />
+    <Compile Include="Camera.fs" />
+    <Compile Include="CameraPose.fs" />
+    <Compile Include="OpenCV.fs" />
+    <Compile Include="PhotoNetworkEdge.fs" />
+    <Compile Include="PhotoNetwork.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
