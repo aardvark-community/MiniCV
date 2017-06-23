@@ -3,6 +3,7 @@
 open System
 open Aardvark.Base
 
+open System.Collections.Generic
 open System.Runtime.InteropServices
 open System.Security
 
@@ -27,7 +28,7 @@ type RecoverPoseConfig  =
             }
 
         static member Default =
-                RecoverPoseConfig(1.0, V2d.Zero, 0.99999, 0.0001)
+            RecoverPoseConfig(1.0, V2d.Zero, 0.999, 0.01)
 
     end
 
@@ -147,7 +148,9 @@ type CameraPose =
         val mutable public ScaleSign : int
         val mutable public Rotation : M33d
         val mutable public Translation : V3d
-        new(ri, ss, r, t) = { RotationIndex = ri; ScaleSign = ss; Rotation = r; Translation = t }
+        val mutable public IsInverse : bool
+
+        new(ri, ss, r, t, i) = { RotationIndex = ri; ScaleSign = ss; Rotation = r; Translation = t; IsInverse = i }
     end
 
 
@@ -170,7 +173,7 @@ module CameraPose =
 
     let scale (f : float) (pose : CameraPose) =
         let s = sign f
-        CameraPose(pose.RotationIndex, s * pose.ScaleSign, pose.Rotation, f * pose.Translation)
+        CameraPose(pose.RotationIndex, s * pose.ScaleSign, pose.Rotation, f * pose.Translation, pose.IsInverse)
 
     let findScaled (srcCam : Camera) (worldObservations : list<V3d * V2d>) (pose : CameraPose) =
         // todo: remove outliers
@@ -191,11 +194,12 @@ module CameraPose =
                 pose.Rotation * pose.Translation
                     |> srcView.Backward.TransformDir
                     |> dst0View.Forward.TransformDir
-
+                    |> Vec.normalize
 
             let scales =
                 let t = dst0Translation
-                dst0Observations |> List.collect (fun (point, obs) ->
+                worldObservations |> List.collect (fun (worldPoint, obs) ->
+                    let point = dst0View.Forward.TransformPos(worldPoint)
                     // project(point + s * t) = obs
                 
                     // (point.xy + s * t.xy) / (point.z + s * t.z) = obs
@@ -204,38 +208,32 @@ module CameraPose =
                     // s * t.xy - s * obs * t.z  = obs * point.z - point.xy
                     // s * (t.xy - obs * t.z) = obs * point.z - point.xy
                     // s = (obs * point.z - point.xy) / (t.xy - obs * t.z)
-
-                    // (point.xy + s * t.xy) / -(point.z + s * t.z) = obs
-                    // point.xy + s * t.xy  = -obs * (point.z + s * t.z)
-                    // point.xy + s * t.xy  = -obs * point.z - s * obs * t.z
-                    // s * t.xy + s * obs * t.z  = -obs * point.z - point.xy
-                    // s * (t.xy + obs * t.z)  = -obs * point.z - point.xy
-                
-                    // s  = -(obs * point.z + point.xy) / (t.xy + obs * t.z)
                     let z = (obs * point.Z - point.XY) 
                     let n = t.XY - obs * t.Z
 
                     let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
-                    //let zt = Fun.IsTiny(z.X, 1e-3) || Fun.IsTiny(z.Y, 1e-3)
 
                     match nt with
                         | true -> []
                         | _ -> 
-                            let s = z / n
+                            let s = -z / n
+
                             [s.X; s.Y]
+
+
                 )
 
             let scaleRange = Range1d scales
             let s = List.average scales
 
-            let finalPose = scale -s pose
+            let finalPose = scale s pose
             let dstCam = Camera.transformedView (transformation finalPose) srcCam
 
             let mutable cnt = 0
             let cost = worldObservations |> List.sumBy (fun (w,o) -> cnt <- cnt + 1; Camera.project1 dstCam w - o |> Vec.lengthSquared)
             let avgCost = sqrt (cost / float cnt)
 
-            avgCost, (scale -s pose)
+            avgCost, finalPose
 
     let inverse (pose : CameraPose) =
         // qi = R * (pi + t)
@@ -250,12 +248,42 @@ module CameraPose =
 
         let R' = R.Transposed // rotation inverse
         let t' = -(R * t)
-        CameraPose(pose.RotationIndex, pose.ScaleSign, R', t')
+        CameraPose(pose.RotationIndex, pose.ScaleSign, R', t', not pose.IsInverse)
 
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module Ray =
-    let intersection (r : seq<Ray3d>) = r.GetMiddlePoint()
+    let rec intersections (r : list<Ray3d>) = 
+        match r with
+            | a :: rest ->
+                let toRest =
+                    rest |> List.choose (fun b ->
+                        if V3d.ApproxEqual(a.Direction, b.Direction) then
+                            None
+                        else
+                            let pt = a.GetMiddlePoint(b)
+                            if pt.AnyNaN || pt.AnyInfinity then
+                                None
+                            else
+                                let d = a.GetMinimalDistanceTo(pt) + b.GetMinimalDistanceTo(pt)
+                                Some (d,pt)
+                    )
+
+
+                toRest @ intersections rest
+            | _ ->
+                []
+
+    let intersection (r : list<Ray3d>) =
+        let r = HSet.ofList r |> HSet.toList
+        r.GetMiddlePoint()
+//        let candidates = intersections r |> List.sortBy fst
+//        match candidates with
+//            | [] -> failwith "not possible"
+//            | [(_,p)] -> p
+//            | ps -> 
+//                let (n, p) = ps |> List.fold (fun (n,v) (_,p) -> (n + 1, v + p)) (0, V3d.Zero)
+//                p / float n
 
 
 module MiniCV =
@@ -300,11 +328,11 @@ module MiniCV =
 
         let possiblePoses =
             if m1 = m2 then
-                [CameraPose(0, 1, m1, t)]
+                [CameraPose(0, 1, m1, t, false)]
             else
                 [
-                    CameraPose(0, 1, m1, t)
-                    CameraPose(1, 1, m2, t)
+                    CameraPose(0, 1, m1, t, false)
+                    CameraPose(1, 1, m2, t, false)
                 ]
 
         let mask =
@@ -396,6 +424,7 @@ type PhotoNetworkEdge =
         right               : CameraId
         leftObservations    : MapExt<TrackId, V2d>
         rightObservations   : MapExt<TrackId, V2d>
+        inverse             : bool
 
         leftToRight         : list<CameraPose>
         rightToLeft         : list<CameraPose>
@@ -413,6 +442,7 @@ module PhotoNetworkEdge =
             right               = rid
             leftObservations    = MapExt.empty
             rightObservations   = MapExt.empty
+            inverse             = false
 
             leftToRight         = []
             rightToLeft         = []
@@ -422,7 +452,7 @@ module PhotoNetworkEdge =
         }
 
     let create (lid : CameraId) (lObs : MapExt<TrackId, V2d>) (rid : CameraId) (rObs : MapExt<TrackId, V2d>) =
-        let bothObs = MapExt.intersect lObs rObs
+        let mutable bothObs = MapExt.intersect lObs rObs
         if bothObs.Count < 5 then
             empty lid rid
         else
@@ -437,10 +467,13 @@ module PhotoNetworkEdge =
                 if mask.[i] then
                     tracks <- Set.add trackIds.[i] tracks
                     trackCount <- trackCount + 1
+                else
+                    bothObs <- MapExt.remove trackIds.[i] bothObs
 
             {
                 left = lid
                 right = rid
+                inverse = false
                 leftObservations = MapExt.map (fun _ -> fst) bothObs
                 rightObservations = MapExt.map (fun _ -> snd) bothObs
 
@@ -455,6 +488,7 @@ module PhotoNetworkEdge =
         {
             left                = edge.right
             right               = edge.left
+            inverse             = not edge.inverse
             leftObservations    = edge.rightObservations
             rightObservations   = edge.leftObservations
 
@@ -481,6 +515,7 @@ type PhotoNetwork =
         cost                : float
         cameras             : MapExt<CameraId, Camera>
         edges               : MapExt<CameraId * CameraId, PhotoNetworkEdge>
+        usedEdges           : Set<CameraId * CameraId>
         points              : MapExt<TrackId, V3d>
         observations        : MapExt<CameraId, MapExt<TrackId, V2d>>
     }
@@ -498,7 +533,7 @@ module PhotoNetworkConfig =
             recoverPoseConfig   = RecoverPoseConfig.Default
             rootCam             = Camera.lookAt (V3d(0.0, 5.0, 0.0)) V3d.OOO V3d.OOI
             firstDistance       = 5.0
-            ndcTolerance        = 0.1 // => 0.05 => 5% => 50px@1k
+            ndcTolerance        = Double.PositiveInfinity // => 0.05 => 5% => 50px@1k
         }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -525,18 +560,29 @@ module PhotoNetwork =
 
     let private postProcess (net : PhotoNetwork) =
         let measurements = Dict()
-        for (cid, cam) in MapExt.toSeq net.cameras do
-            let obs = MapExt.tryFind cid net.observations |> Option.defaultValue MapExt.empty
 
-            for (tid, pt) in MapExt.toSeq obs do
-                let r = measurements.GetOrCreate(tid, fun _ -> ref [])
-                r := (Camera.unproject1 cam pt, cam, pt) :: !r
+        for camPair in net.usedEdges do
+            let (l,r) = camPair
+            let edge = net.edges.[camPair]
+
+            let obs = MapExt.intersect edge.leftObservations edge.rightObservations
+            let lCam = net.cameras.[l]
+            let rCam = net.cameras.[r]
+
+            for (tid, (lObs,rObs)) in MapExt.toSeq obs do
+                let ms = measurements.GetOrCreate(tid, fun _ -> ref [])
+
+                ms :=
+                    (Camera.unproject1 lCam lObs, lCam, lObs) ::
+                    (Camera.unproject1 rCam rObs, rCam, rObs) ::
+                    !ms
 
         let points = 
             measurements |> Dict.toSeq |> Seq.choose (fun (tid, rays) ->
                 match !rays with
                     | [] | [_] -> None
                     | rays -> 
+                        
                         let rays = rays |> List.map ( fun (r,_,_) -> r )
                         let pt = Ray.intersection rays
                         if pt.AnyInfinity || pt.AnyNaN then
@@ -566,6 +612,7 @@ module PhotoNetwork =
             cameras = MapExt.empty
             points = MapExt.empty
             edges = MapExt.empty
+            usedEdges = Set.empty
             observations = MapExt.empty
         }
 
@@ -602,19 +649,55 @@ module PhotoNetwork =
             let edge = PhotoNetworkEdge.create pid parentObs cid observations
 
             if edge.trackCount >= minTrackCount then
-                let camera = 
-                    let t = edge.leftToRight |> List.head |> CameraPose.scale network.config.firstDistance |> CameraPose.transformation
-                    Camera.transformedView t parent
+                
+                let poses =
+                    edge.leftToRight |> List.collect (fun p ->
+                        [
+                            p |> CameraPose.scale network.config.firstDistance  
+                            p |> CameraPose.scale -network.config.firstDistance    
+                        ]
+                    )
+                    
 
-                let newNetwork =
-                    { network with
-                        count = 2
-                        cameras = MapExt.add cid camera network.cameras
-                        edges = MapExt.add (pid, cid) edge (MapExt.add (cid, pid) (PhotoNetworkEdge.inverse edge) network.edges)
-                        observations = MapExt.add cid observations network.observations
-                    }
+                let configurations = 
+                    poses |> List.choose (fun p ->
+                        let cam1 = 
+                            let t = p |> CameraPose.transformation
+                            Camera.transformedView t parent
 
-                Some (postProcess newNetwork)
+                        let points =
+                            let worldPoints = triangulatePoints pid parent cid cam1 network
+                            MapExt.intersect worldPoints observations
+                                |> MapExt.toList
+                                |> List.map snd
+
+                        let passt =
+                            points |> List.forall ( fun (p,_) -> Vec.dot (p - (cam1.location)).Normalized cam1.forward >= 0.0 )
+
+                        if passt then
+                            Some p
+                        else
+                            None
+                    )
+
+                match configurations with
+                    | pose :: _ ->
+                        let camera = 
+                            let t = pose |> CameraPose.transformation
+                            Camera.transformedView t parent
+
+                        let newNetwork =
+                            { network with
+                                count = 2
+                                cameras = MapExt.add cid camera network.cameras
+                                edges = MapExt.ofList [(pid, cid), edge; (cid, pid), PhotoNetworkEdge.inverse edge]
+                                usedEdges = Set.ofList [(pid, cid)]
+                                observations = MapExt.add cid observations network.observations
+                            }
+
+                        Some (postProcess newNetwork)
+                    | _ ->
+                        None
             else
                 None
 
@@ -686,6 +769,7 @@ module PhotoNetwork =
                                     count = 3
                                     cameras = MapExt.ofList [c0, cam0; c1, cam1; c2, cam2]
                                     edges = MapExt.union network.edges (MapExt.union forwardEdges backwardEdges)
+                                    usedEdges = Set.ofList [ (c0,c1); (c1,c2) ]
                                     observations = MapExt.add cid observations network.observations
                                 }
 
@@ -728,6 +812,7 @@ module PhotoNetwork =
                                     count = network.count + 1
                                     cameras = MapExt.add c2 cam2 network.cameras
                                     edges = MapExt.union network.edges (MapExt.union forwardEdges backwardEdges)
+                                    usedEdges = Set.add (c1, c2) network.usedEdges
                                     observations = MapExt.add c2 observations network.observations
                                 }
 
@@ -765,7 +850,7 @@ module PhotoNetwork =
                 let (network, good, remaining) = epoch (empty cfg) cams 0 []
                 addMany (network::networks) remaining
 
-        addMany [] cams
+        addMany [] cams |> List.sortByDescending (fun n -> n.count)
         
     let transformed (t : Trafo3d) (net : PhotoNetwork) =
         { net with

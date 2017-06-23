@@ -5,6 +5,7 @@ open Aardvark.Base.Incremental
 open Aardvark.SceneGraph
 open Aardvark.Application.WinForms
 open Aardvark.Application
+open Aardvark.Rendering.Text
 
 
 open Aardvark.Reconstruction
@@ -178,32 +179,33 @@ let pointCloudTrafo (l : MapExt<TrackId, V3d>) (r : MapExt<TrackId, V3d>) =
     if pairs.Length < 3 then
         Trafo3d.Identity
     else
-
+        
         // A * x = b
 
         // M * (p,1) = q
 
         // dot (p1,1) M.R0 = q1.X 
-        // dot (p2,1) M.R0 = q2.X 
-        // dot (p2,1) M.R0 = q2.X 
+        // dot (p2,1) M.R1 = q2.Y
+        // dot (p2,1) M.R2 = q2.Z
+         
 
         let solveRow (ri : int) =
             let M0 = 
                 arrarr [|
-                    for i in 0 .. 3 do
+                    for i in 0 .. pairs.Length-1 do
                         let (pi, qi) = pairs.[i]
                         yield [| pi.X; pi.Y; pi.Z; 1.0 |]    
                 |]
 
             let b = 
                 [| 
-                    for i in 0 .. 3 do 
+                    for i in 0 .. pairs.Length-1 do 
                         let (pi, qi) = pairs.[i]
                         yield qi.[ri]
                 |]
 
-            let perm = M0.LuFactorize()
-            M0.LuSolve(perm, b) |> V4d
+            let perm = M0.QrFactorize()
+            M0.QrSolve(perm, b) |> V4d
 
         let r0 = solveRow 0
         let r1 = solveRow 1
@@ -273,18 +275,73 @@ module Sg =
             |> Sg.vertexAttribute' DefaultSemantic.Positions points
             |> Sg.vertexAttribute' DefaultSemantic.Colors cols
 
+    let private overlayPass = RenderPass.after "overlay" RenderPassOrder.Arbitrary RenderPass.main
+    let private consolas = new Font("Consolas")
+    let photonetworkAnnotations (net : PhotoNetwork) =
+        let edges = 
+            let lines = 
+                net.usedEdges 
+                    |> Seq.collect (fun (l,r) -> [ net.cameras.[l].location; net.cameras.[r].location ])
+                    |> Seq.map V3f
+                    |> Seq.toArray
+
+            let colors = 
+                net.usedEdges 
+                    |> Seq.collect (fun (l,r) -> [ C4b.Blue; C4b.Green ])
+                    |> Seq.toArray
+                
+            Sg.render IndexedGeometryMode.LineList (DrawCallInfo( FaceVertexCount = lines.Length, InstanceCount = 1 ))
+                |> Sg.vertexAttribute' DefaultSemantic.Positions lines
+                |> Sg.vertexAttribute' DefaultSemantic.Colors colors
+
+        let edgeAnnotations = 
+            net.usedEdges 
+                |> Seq.map (fun (l,r) ->
+                    let edge = net.edges.[(l,r)]
+                    let pl = net.cameras.[l].location 
+                    let pr = net.cameras.[r].location 
+                    let c =  0.5 * (pl + pr)
+                    
+                    let text = 
+                        String.concat "\n" [
+                            sprintf "count:  %d" edge.leftObservations.Count
+                            sprintf "length: %.2f" (Vec.length (pr - pl))
+                            sprintf "inverse: %A" edge.inverse
+                        ]
+
+                    let shapes = consolas.Layout(C4b.Black, TextAlignment.Center, Box2d(-V2d.II, V2d.II), text)
+                    Sg.shapeWithBackground (C4b(255uy,255uy,255uy,200uy)) (Mod.constant shapes)
+                        |> Sg.scale 0.1
+                        |> Sg.billboard
+                        |> Sg.transform (Trafo3d.Translation(c))
+                )
+                |> Sg.ofSeq
+                |> Sg.blendMode (Mod.constant BlendMode.Blend)
+                |> Sg.pass overlayPass
+
+        Sg.ofList [
+            edges
+            edgeAnnotations
+        ]
+
     let photonetworks (far : float) (nets : list<PhotoNetwork>)=
         nets |> List.mapi ( fun i net ->
             Sg.ofList [
                 net.cameras |> cameras far
                 net.points |> points
-            ]   |> Sg.andAlso (IndexedGeometryPrimitives.coordinateCross V3d.III |> Sg.ofIndexedGeometry)
-                |> Sg.translate (float i * 10.0) 0.0 0.0
-        )   |> Sg.ofList
-            |> Sg.shader {
-                do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.vertexColor
-            }
+
+                photonetworkAnnotations net
+
+            ]   
+            |> Sg.andAlso (IndexedGeometryPrimitives.coordinateCross V3d.III |> Sg.ofIndexedGeometry)
+            |> Sg.translate (float i * 10.0) 0.0 0.0
+
+        )   
+        |> Sg.ofList
+        |> Sg.shader {
+            do! DefaultSurfaces.trafo
+            do! DefaultSurfaces.vertexColor
+        }
 
            
            
@@ -313,26 +370,38 @@ let renderNetwork () =
             cost                = 0.0
             cameras             = MapExt.ofList cameras
             edges               = MapExt.empty
+            usedEdges           = Set.empty
             points              = Array.zip tracks points |> MapExt.ofArray
             observations        = MapExt.empty
         }
 
     let rand = RandomSystem()
     let jiggleRadius = 0.01
+    let mismatchChance = 0.03 //1
+    let observeChance = 0.4
+
+    let bounds = Box2d(-V2d.II, V2d.II)
+    let mutable mismatchCount = 0
 
     let observe (c : Camera) =
         points |> Seq.mapi (fun i p ->
             let tid = tracks.[i]
-            let c = Camera.project1 c p
+            if rand.UniformDouble() <= mismatchChance then
+                mismatchCount <- mismatchCount + 1
+                tid, rand.UniformV2d(bounds)
+            else
+                let c = Camera.project1 c p
 
-            let c = 
-                if jiggleRadius > 0.0 then
-                    c + rand.UniformV2dDirection() * rand.UniformDouble() * jiggleRadius
-                else
-                    c
+                let c = 
+                    if jiggleRadius > 0.0 then
+                        c + rand.UniformV2dDirection() * rand.UniformDouble() * jiggleRadius
+                    else
+                        c
 
-            tid, c
-        ) |> MapExt.ofSeq
+                tid, c
+        )
+        |> Seq.filter (fun _ -> rand.UniformDouble() <= observeChance)
+        |> MapExt.ofSeq
 
     let cams = cameras |> List.map ( fun (cid, c) -> cid, observe c ) 
             
@@ -351,6 +420,19 @@ let renderNetwork () =
           Sg.photonetworks 0.7 [original] //|> Sg.translate 0.0 10.0 0.0
         ] |> Sg.ofList
             
+    let font = Font("Consolas")
+    let overlay =
+        let content =
+            String.concat "\r\n" [
+                sprintf "mismatches: %d" mismatchCount
+                sprintf "points: %d" (nets |> List.sumBy (fun n -> n.points.Count))
+            ]
+        Sg.text font C4b.White (Mod.constant content)
+            |> Sg.billboard
+            |> Sg.translate 0.0 0.0 5.0
+
+    let sg = Sg.ofList [sg]
+
     use app = new OpenGlApplication()
     use win = app.CreateSimpleRenderWindow(8)
         
