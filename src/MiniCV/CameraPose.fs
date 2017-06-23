@@ -83,18 +83,21 @@ module CameraPose =
 
 
                 )
+            
+            match scales with
+            | [] -> Double.PositiveInfinity, CameraPose()
+            | _ ->
+                let scaleRange = Range1d scales
+                let s = List.average scales
 
-            let scaleRange = Range1d scales
-            let s = List.average scales
+                let finalPose = scale s pose
+                let dstCam = Camera.transformedView (transformation finalPose) srcCam
 
-            let finalPose = scale s pose
-            let dstCam = Camera.transformedView (transformation finalPose) srcCam
+                let mutable cnt = 0
+                let cost = worldObservations |> List.sumBy (fun (w,o) -> cnt <- cnt + 1; Camera.project1 dstCam w - o |> Vec.lengthSquared)
+                let avgCost = sqrt (cost / float cnt)
 
-            let mutable cnt = 0
-            let cost = worldObservations |> List.sumBy (fun (w,o) -> cnt <- cnt + 1; Camera.project1 dstCam w - o |> Vec.lengthSquared)
-            let avgCost = sqrt (cost / float cnt)
-
-            avgCost, finalPose
+                avgCost, finalPose
 
     let inverse (pose : CameraPose) =
         // qi = R * (pi + t)
