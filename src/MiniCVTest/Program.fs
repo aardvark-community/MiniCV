@@ -175,40 +175,42 @@ let arrarr (arr : 'a[][]) =
 let pointCloudTrafo (l : MapExt<TrackId, V3d>) (r : MapExt<TrackId, V3d>) =
     
     let pairs = MapExt.intersect l r |> MapExt.values |> Seq.toArray
+    if pairs.Length < 3 then
+        Trafo3d.Identity
+    else
 
+        // A * x = b
 
-    // A * x = b
+        // M * (p,1) = q
 
-    // M * (p,1) = q
+        // dot (p1,1) M.R0 = q1.X 
+        // dot (p2,1) M.R0 = q2.X 
+        // dot (p2,1) M.R0 = q2.X 
 
-    // dot (p1,1) M.R0 = q1.X 
-    // dot (p2,1) M.R0 = q2.X 
-    // dot (p2,1) M.R0 = q2.X 
+        let solveRow (ri : int) =
+            let M0 = 
+                arrarr [|
+                    for i in 0 .. 3 do
+                        let (pi, qi) = pairs.[i]
+                        yield [| pi.X; pi.Y; pi.Z; 1.0 |]    
+                |]
 
-    let solveRow (ri : int) =
-        let M0 = 
-            arrarr [|
-                for i in 0 .. 3 do
-                    let (pi, qi) = pairs.[i]
-                    yield [| pi.X; pi.Y; pi.Z; 1.0 |]    
-            |]
+            let b = 
+                [| 
+                    for i in 0 .. 3 do 
+                        let (pi, qi) = pairs.[i]
+                        yield qi.[ri]
+                |]
 
-        let b = 
-            [| 
-                for i in 0 .. 3 do 
-                    let (pi, qi) = pairs.[i]
-                    yield qi.[ri]
-            |]
+            let perm = M0.LuFactorize()
+            M0.LuSolve(perm, b) |> V4d
 
-        let perm = M0.LuFactorize()
-        M0.LuSolve(perm, b) |> V4d
+        let r0 = solveRow 0
+        let r1 = solveRow 1
+        let r2 = solveRow 2
 
-    let r0 = solveRow 0
-    let r1 = solveRow 1
-    let r2 = solveRow 2
-
-    let mat = M44d.FromRows(r0, r1, r2, V4d.OOOI)
-    Trafo3d(mat, mat.Inverse)
+        let mat = M44d.FromRows(r0, r1, r2, V4d.OOOI)
+        Trafo3d(mat, mat.Inverse)
 
 
 
@@ -295,7 +297,7 @@ let renderNetwork () =
         )
         
     let cameras = 
-        List.init 60 ( fun i ->
+        List.init 5 ( fun i ->
             //if i = 0 then CameraId.New, Camera.lookAt (V3d(0,-5,0)) V3d.Zero V3d.OOI
             //else
                 CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
@@ -315,11 +317,20 @@ let renderNetwork () =
             observations        = MapExt.empty
         }
 
+    let rand = RandomSystem()
+    let jiggleRadius = 0.01
 
     let observe (c : Camera) =
         points |> Seq.mapi (fun i p ->
             let tid = tracks.[i]
             let c = Camera.project1 c p
+
+            let c = 
+                if jiggleRadius > 0.0 then
+                    c + rand.UniformV2dDirection() * rand.UniformDouble() * jiggleRadius
+                else
+                    c
+
             tid, c
         ) |> MapExt.ofSeq
 
@@ -329,7 +340,7 @@ let renderNetwork () =
     
     let trafo =
         match nets with
-            | [net] ->
+            | net :: _ ->
                 pointCloudTrafo net.points original.points
             | _ ->
                 Trafo3d.Identity
@@ -364,6 +375,7 @@ let renderNetwork () =
 let main argv = 
     Ag.initialize()
     Aardvark.Init()
+    Log.error "%A" System.Environment.CurrentDirectory
 
     renderNetwork()
 

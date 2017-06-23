@@ -227,7 +227,15 @@ module CameraPose =
 
             let scaleRange = Range1d scales
             let s = List.average scales
-            scaleRange.Size, (scale -s pose)
+
+            let finalPose = scale -s pose
+            let dstCam = Camera.transformedView (transformation finalPose) srcCam
+
+            let mutable cnt = 0
+            let cost = worldObservations |> List.sumBy (fun (w,o) -> cnt <- cnt + 1; Camera.project1 dstCam w - o |> Vec.lengthSquared)
+            let avgCost = sqrt (cost / float cnt)
+
+            avgCost, (scale -s pose)
 
     let inverse (pose : CameraPose) =
         // qi = R * (pi + t)
@@ -254,13 +262,13 @@ module MiniCV =
 
     module Native =
         [<Literal>]
-        let lib = "MiniCVNative"
+        let lib = @"MiniCVNative"
         
         [<DllImport(lib, EntryPoint = "cvRecoverPose"); SuppressUnmanagedCodeSecurity>]
         extern int cvRecoverPose_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat, V3d& tVec, byte[] ms)
         
         [<DllImport(lib, EntryPoint = "cvRecoverPoses"); SuppressUnmanagedCodeSecurity>]
-        extern void cvRecoverPoses_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat1, M33d& rMat2, V3d& tVec, byte[] ms)
+        extern bool cvRecoverPoses_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat1, M33d& rMat2, V3d& tVec, byte[] ms)
 
     let recoverPose (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =
         let mutable m = M33d.Identity
@@ -276,7 +284,7 @@ module MiniCV =
         let mutable t = V3d(100,123,432)
         let mutable cfg = cfg
         let mutable ms = Array.create a.Length 0uy
-        Native.cvRecoverPoses_(&&cfg, a.Length, a, b, &m1, &m2, &t, ms)
+        Native.cvRecoverPoses_(&&cfg, a.Length, a, b, &m1, &m2, &t, ms) |> ignore
         (m1, m2, t, ms)
 
     let recoverPoses2 (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =
@@ -285,16 +293,19 @@ module MiniCV =
         let mutable t = V3d(100,123,432)
         let mutable cfg = cfg
         let mutable ms = Array.create a.Length 0uy
-        Native.cvRecoverPoses_(&&cfg, a.Length, a, b, &m1, &m2, &t, ms)
+        Native.cvRecoverPoses_(&&cfg, a.Length, a, b, &m1, &m2, &t, ms) |> ignore
 
         let m1 = m1.Transposed
         let m2 = m2.Transposed
 
         let possiblePoses =
-            [
-                CameraPose(0, 1, m1, t)
-                CameraPose(1, 1, m2, t)
-            ]
+            if m1 = m2 then
+                [CameraPose(0, 1, m1, t)]
+            else
+                [
+                    CameraPose(0, 1, m1, t)
+                    CameraPose(1, 1, m2, t)
+                ]
 
         let mask =
             Array.map ((<>) 0uy) ms
@@ -459,7 +470,7 @@ type PhotoNetworkConfig =
         recoverPoseConfig   : RecoverPoseConfig
         rootCam             : Camera
         firstDistance       : float
-        locationTolerance   : float
+        ndcTolerance        : float
     }
 
 [<CustomEquality; NoComparison>]
@@ -487,7 +498,7 @@ module PhotoNetworkConfig =
             recoverPoseConfig   = RecoverPoseConfig.Default
             rootCam             = Camera.lookAt (V3d(0.0, 5.0, 0.0)) V3d.OOO V3d.OOI
             firstDistance       = 5.0
-            locationTolerance   = 2.0
+            ndcTolerance        = 0.1 // => 0.05 => 5% => 50px@1k
         }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -649,7 +660,7 @@ module PhotoNetwork =
 
                         if passt then
                             e12.leftToRight |> List.collect (fun p12 ->
-                                let (cost, p12) =CameraPose.findScaled cam1 points p12
+                                let (cost, p12) = CameraPose.findScaled cam1 points p12
                                 let cam2 = Camera.transformedView (CameraPose.transformation p12) cam1
                                     
                                 [(cost, cam0, cam1, cam2)]
@@ -664,7 +675,7 @@ module PhotoNetwork =
                     | l ->
                         let (cost, cam0, cam1, cam2) = List.minBy (fun (c,_,_,_) -> c) l
                         
-                        if cost > network.config.locationTolerance then
+                        if cost > network.config.ndcTolerance then
                             None
                         else
                             let forwardEdges = candidates
@@ -706,7 +717,7 @@ module PhotoNetwork =
                     | [] -> None
                     | l ->
                         let (cost, cam2) = List.minBy (fun (c,_) -> c) l
-                        if cost > network.config.locationTolerance then
+                        if cost > network.config.ndcTolerance then
                             None
                         else
                             let forwardEdges = candidates

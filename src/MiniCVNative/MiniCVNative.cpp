@@ -46,22 +46,33 @@ typedef struct {
 
 } RecoverPoseConfig;
 
-DllExport(void) cvRecoverPoses(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat1, Matx33d& rMat2, Vec3d& tVec, uint8_t* ms) {
-	vector<Point2d> a(pa, pa + N);
-	vector<Point2d> b(pb, pb + N);
+DllExport(bool) cvRecoverPoses(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat1, Matx33d& rMat2, Vec3d& tVec, uint8_t* ms) {
+	if (N < 5) return false;
 
 	Mat E;
 	Mat mask;
+	
+	Mat aa(N, 1, CV_64FC2, (void*)pa);
+	Mat ba(N, 1, CV_64FC2, (void*)pb);
 
-	E = findEssentialMat(a, b, config->FocalLength, config->PrincipalPoint, RANSAC, config->Probability, config->InlierThreshold, mask);
+	//printf("%d vs %d (%s vs %s)\n", aa.checkVector(2), ba.checkVector(2), type2str(aa.type()).c_str(), type2str(aa.type()).c_str());
+
+	E = findEssentialMat(aa, ba, config->FocalLength, config->PrincipalPoint, RANSAC, config->Probability, config->InlierThreshold, mask);
 
 	for (int i = 0; i < mask.rows; i++) {
 		ms[i] = mask.at<uint8_t>(i);
 		//printf("fufu1 %d  ", mask.at<uint8_t>(i));
 		//printf("fufu2 %d  \n", ms[i]);
 	}
-
-	decomposeEssentialMat(E, rMat1, rMat2, tVec);
+	if (E.rows == 3 && E.cols == 3)
+	{
+		decomposeEssentialMat(E, rMat1, rMat2, tVec);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 
