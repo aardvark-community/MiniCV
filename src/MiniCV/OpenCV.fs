@@ -36,6 +36,7 @@ type RecoverPoseConfig  =
 module OpenCV =
 
     module Native =
+
         [<Literal>]
         let lib = @"MiniCVNative"
         
@@ -44,6 +45,10 @@ module OpenCV =
         
         [<DllImport(lib, EntryPoint = "cvRecoverPoses"); SuppressUnmanagedCodeSecurity>]
         extern bool cvRecoverPoses_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat1, M33d& rMat2, V3d& tVec, byte[] ms)
+
+        [<DllImport(lib, EntryPoint = "cvDoStuff"); SuppressUnmanagedCodeSecurity>]
+        extern void cvDoStuff_( string[] imgs, int ct, string[] repr, int rct, string[] oFilenames)
+
 
     let recoverPose (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =
         let mutable m = M33d.Identity
@@ -86,3 +91,32 @@ module OpenCV =
             Array.map ((<>) 0uy) ms
 
         possiblePoses, mask
+
+    open System
+    open System.IO
+    open System.Text
+
+    let undistortImages (chessboardDir : string) (photoDir : string) =
+
+        let chess = Directory.GetFiles(chessboardDir) 
+                        |> Array.map ( fun f -> f.ToLower() ) 
+                        |> Array.filter ( fun fn -> Path.GetExtension fn = ".jpg" )
+        
+        let photo = Directory.GetFiles(photoDir) 
+                        |> Array.map ( fun f -> f.ToLower() ) 
+                        |> Array.filter ( fun fn -> Path.GetExtension fn = ".jpg" )
+
+        let od =
+            let p = Path.combine [photoDir; "undistorted"]
+            if p |> Directory.Exists |> not then Directory.CreateDirectory p |> ignore
+            p
+
+        let oFiles = 
+            photo |> Array.map ( fun f -> Path.combine [od; (Path.GetFileName f)])
+
+        Native.cvDoStuff_(chess, 
+                          chess.Length, 
+                          photo, 
+                          photo.Length, 
+                          oFiles)
+            

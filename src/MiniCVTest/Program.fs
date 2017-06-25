@@ -456,15 +456,20 @@ let renderGraphical() =
     
     ()
 
-
+let undistort() =
+    
+    OpenCV.undistortImages 
+        @"D:\bla2\calib\small"
+        @"D:\bla2\buch\small\1"
 
 
 [<EntryPoint>]
 let main argv = 
     Ag.initialize()
     Aardvark.Init()
-    Log.error "%A" System.Environment.CurrentDirectory
+    //Log.error "%A" System.Environment.CurrentDirectory
 
-    renderNetwork()
+    //renderNetwork()
+    undistort()
 
     0
