@@ -7,6 +7,7 @@ open System.Collections.Generic
 open System.Runtime.InteropServices
 open System.Security
 open Aardvark.Reconstruction
+open Microsoft.FSharp.NativeInterop
 
 #nowarn "9"
 #nowarn "51"
@@ -33,7 +34,59 @@ type RecoverPoseConfig  =
 
     end
 
+[<Struct>]
+type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : float, octave : int, descriptorDimension : int, descriptors : float[]) =
+    member x.Index = index
+    member x.Position = pos
+    member x.Size = size
+    member x.Angle = angle
+    member x.Response = response
+    member x.Octave = int
+
+    member x.Descriptor =
+        let fst = int64 descriptorDimension * int64 index
+        Vector<float>(descriptors, fst, int64 descriptorDimension, 1L)
+        
+    override x.ToString() =
+        sprintf "{ pos = %A; size = %A; angle = %A }" pos size angle
+
+type FeatureResult =
+    {
+        points                  : KeyPoint[]
+        descriptors             : float[]
+        descriptorDimension     : int
+    }
+
+
 module OpenCV =
+
+    [<StructLayout(LayoutKind.Sequential)>]
+    type KeyPoint2d =
+        struct
+            val mutable public pt : V2f
+            val mutable public size : float32
+            val mutable public angle : float32
+            val mutable public response : float32
+            val mutable public octave : int
+            val mutable public class_id : int
+
+
+        end
+
+    [<StructLayout(LayoutKind.Sequential)>]
+    type DetectorResult =
+        struct
+            val mutable public PointCount : int
+            val mutable public DescriptorEntries : int
+            val mutable public Points : nativeptr<KeyPoint2d>
+            val mutable public Descriptors : nativeptr<float32>
+        end
+
+    type DetectorMode =
+        | Akaze = 1
+        | Orb = 2
+        | Brisk = 3
+
 
     module Native =
         [<Literal>]
@@ -44,6 +97,53 @@ module OpenCV =
         
         [<DllImport(lib, EntryPoint = "cvRecoverPoses"); SuppressUnmanagedCodeSecurity>]
         extern bool cvRecoverPoses_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat1, M33d& rMat2, V3d& tVec, byte[] ms)
+        
+        [<DllImport(lib, EntryPoint = "cvDetectFeatures"); SuppressUnmanagedCodeSecurity>]
+        extern DetectorResult* cvDetectFeatures_(byte* data, int width, int height, int channels, DetectorMode mode)
+        
+        [<DllImport(lib, EntryPoint = "cvFreeFeatures"); SuppressUnmanagedCodeSecurity>]
+        extern void cvFreeFeatures_(DetectorResult* res)
+
+
+    let private copy (src : nativeptr<'a>) (dst : 'a[]) (cnt : int) =
+        let gc = GCHandle.Alloc(dst, GCHandleType.Pinned)
+        try
+            Marshal.Copy(NativePtr.toNativeInt src, gc.AddrOfPinnedObject(), nativeint sizeof<'a> * nativeint cnt)
+        finally
+            gc.Free()
+
+    let detectFeatures (mode : DetectorMode) (data : byte[]) (width : int) (height : int) (channels : int) =
+        let gc = GCHandle.Alloc(data, GCHandleType.Pinned)
+        let mutable ptr = NativePtr.zero
+        try
+            ptr <- Native.cvDetectFeatures_(NativePtr.ofNativeInt (gc.AddrOfPinnedObject()), width, height, channels, mode)
+            let v = NativePtr.read ptr
+            
+            if v.PointCount = 0 then
+                {
+                    points                  = [||]
+                    descriptors             = [||]
+                    descriptorDimension     = 64
+                }
+            else
+                let pts : KeyPoint2d[] = Array.zeroCreate v.PointCount
+                let descriptors : float32[] = Array.zeroCreate v.DescriptorEntries
+
+                copy v.Points pts pts.Length
+                copy v.Descriptors descriptors descriptors.Length
+
+                let dim = descriptors.Length / pts.Length
+                let descriptors = descriptors |> Array.map float
+
+                let points = pts |> Array.mapi (fun i pt -> KeyPoint(i, V2d pt.pt, float pt.size, float pt.angle, float pt.response, pt.octave, dim, descriptors))
+                {
+                    points                  = points
+                    descriptors             = descriptors
+                    descriptorDimension     = dim
+                }
+        finally
+            Native.cvFreeFeatures_ ptr
+            gc.Free()
 
     let recoverPose (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =
         let mutable m = M33d.Identity

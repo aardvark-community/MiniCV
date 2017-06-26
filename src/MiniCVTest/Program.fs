@@ -465,6 +465,15 @@ let main argv =
     Aardvark.Init()
     Log.error "%A" System.Environment.CurrentDirectory
 
-    renderNetwork()
+    let img1 = PixImage.Create @"C:\Users\Schorsch\Desktop\test\image0.jpg"
+    let img = img1.ToPixImage<byte>(Col.Format.RGB)
+
+    let features = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze img.Volume.Data img.Size.X img.Size.Y img.ChannelCount
+
+    printfn "%A" features
+
+
+
+    //renderNetwork()
 
     0

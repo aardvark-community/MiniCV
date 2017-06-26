@@ -2,18 +2,14 @@
 //
 
 #include "stdafx.h"
-#include <stdio.h>
-
-#include <vector>
-#include <opencv2\opencv.hpp>
-#include <opencv2\calib3d.hpp>
+#include "MiniCVNative.h"
 
 using namespace cv;
 using namespace std;
 
 
 //runtime identify cv::Mat type and channel count
-string type2str(int type) {
+static string type2str(int type) {
 	string r;
 
 	uchar depth = type & CV_MAT_DEPTH_MASK;
@@ -96,3 +92,111 @@ DllExport(int) cvRecoverPose(const RecoverPoseConfig* config, const int N, const
 	return res;
 }
 
+
+
+
+DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, int channels, int mode = FEATURE_MODE_AKAZE) {
+
+	int fmt;
+	switch (channels)
+	{
+		case 1: 
+			fmt = CV_8UC1;
+			break;
+		case 2:
+			fmt = CV_8UC2;
+			break;
+		case 3:
+			fmt = CV_8UC3;
+			break;
+		case 4:
+			fmt = CV_8UC4;
+			break;
+		default:
+			return nullptr;
+	}
+
+	Mat input(height, width, fmt, (void*)data);
+	cv::Ptr<cv::FeatureDetector> detector;
+	switch (mode)
+	{
+	case FEATURE_MODE_AKAZE:
+		detector = cv::AKAZE::create();
+		break;
+	case FEATURE_MODE_ORB:
+		detector = cv::ORB::create();
+		break;
+	case FEATURE_MODE_BRISK:
+		detector = cv::BRISK::create();
+		break;
+	default:
+		return nullptr;
+	}
+
+	Mat img;
+	cv::cvtColor(input, img, CV_RGB2GRAY);
+
+	vector<KeyPoint> points;
+	vector<float> descriptors;
+	detector->detectAndCompute(img, noArray(), points, descriptors);
+
+	if (points.size() == 0)
+	{
+		auto res = new DetectorResult();
+		res->PointCount = 0;
+		res->DescriptorEntries = 0;
+		res->Points = nullptr;
+		res->Descriptors = nullptr;
+		return res;
+	}
+	else
+	{
+		printf("descriptors: %d\n", descriptors.size());
+		printf("points: %d\n", points.size());
+
+		auto points1 = new KeyPoint2d[points.size()];
+		auto descriptors1 = new float[descriptors.size()];
+
+		for (int i = 0; i < points.size(); i++)
+		{
+			points1[i].angle = points[i].angle;
+			points1[i].class_id = points[i].class_id;
+			points1[i].octave = points[i].octave;
+			points1[i].pt = points[i].pt;
+			points1[i].response = points[i].response;
+			points1[i].size = points[i].size;
+		}
+
+		std::copy(descriptors.begin(), descriptors.end(), descriptors1);
+		//std::copy(descriptors.begin<float>(), descriptors.end<float>(), descriptors1);
+
+		detector->clear();
+		img.release();
+
+		auto res = new DetectorResult();
+		res->PointCount = (int)points.size();
+		res->DescriptorEntries = (int)descriptors.size();
+		res->Points = points1;
+		res->Descriptors = descriptors1;
+
+		return res;
+	}
+}
+
+DllExport(void) cvFreeFeatures(DetectorResult* res)
+{
+	if (!res || !res->PointCount) return;
+
+	if (res->Descriptors)
+	{
+		delete res->Descriptors;
+		res->Descriptors = nullptr;
+	}
+	if (res->Points)
+	{
+		delete res->Points;
+		res->Points = nullptr;
+	}
+
+	delete res;
+}
