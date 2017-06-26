@@ -77,12 +77,15 @@ module CameraPose =
             let mutable bestScale = 0.0
             let mutable bestCount = -1
             let t = dst0Translation
+            let mutable total = 0
             for (worldPoint, obs) in worldObservations do
                 let point = dst0View.Forward.TransformPos(worldPoint)
                 let z = (obs * point.Z - point.XY) 
                 let n = t.XY - obs * t.Z
 
                 let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
+
+                total <- total + 1
 
                 match nt with
                     | true -> ()
@@ -105,6 +108,10 @@ module CameraPose =
             
             let finalPose = scale bestScale pose
             let dstCam = Camera.transformedView (transformation finalPose) srcCam
+//
+//            if bestCount < 10 || float bestCount / float total < 0.2 then
+//                Double.PositiveInfinity, finalPose
+//            else
 
             let mutable cnt = 0
             let cost = 1.0 / float (2 + bestCount)

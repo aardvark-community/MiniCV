@@ -156,14 +156,14 @@ DllExport(void) cvDoStuff(std::string* imgs1, int ct, std::string* repr1, int rc
 	printf("Finding calibration target in %d images...\n", ct);
 	for (int i = 0; i < ct; i++) {
 		auto filename = imgs[i];
-		printf("attempt %d with name: %s", i, (filename.c_str()));
+		printf("attempt %d with name: %s \n", i, (filename.c_str()));
 		auto color = imread(filename.c_str());
 		auto img = Mat();
 		cvtColor(color, img, COLOR_BGR2GRAY);
 		size = Size(img.rows, img.cols);
 		auto corners = vector<Vec2d>();
 
-		bool success = findChessboardCorners(img, Size(7, 6), corners);
+		bool success = findChessboardCorners(img, Size(9, 8), corners);
 
 		if (success) {
 			objectPoints.push_back(op);

@@ -82,7 +82,7 @@ module Camera =
             pt.Y * c.up +
             -c.forward
 
-        Ray3d(c.location, Vec.normalize direction)
+        Ray3d(c.location, -Vec.normalize direction)
 
     let lookAt (eye : V3d) (center : V3d) (sky : V3d) =
         let fw = center - eye       |> Vec.normalize

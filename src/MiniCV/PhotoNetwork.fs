@@ -55,10 +55,9 @@ module PhotoNetwork =
                     let l = MapExt.find tid edge.leftObservations |> Camera.unproject1 lCam
                     let r = MapExt.find tid edge.rightObservations |> Camera.unproject1 rCam
                     let pt =  Ray.intersection [l;r]
-                    if pt.AnyInfinity || pt.AnyNaN then
-                        None
-                    else
-                        Some (tid, pt)
+                    match pt with
+                        | None -> None
+                        | Some pt -> Some (tid, pt)
                 )
                 |> MapExt.ofSeq
 
@@ -92,10 +91,9 @@ module PhotoNetwork =
                         
                         let rays = rays |> List.map ( fun (r,_,_) -> r )
                         let pt = Ray.intersection rays
-                        if pt.AnyInfinity || pt.AnyNaN then
-                            None
-                        else
-                            Some (tid, pt)
+                        match pt with
+                            | None -> None
+                            | Some pt -> Some (tid, pt)
             ) |> MapExt.ofSeq
 
         let cost = 
@@ -474,7 +472,7 @@ module PhotoNetwork =
         let empty = { empty cfg with edges = edgeCache }
 
         Log.startTimed "sorting cameras"
-        let rec flatten (t : Tree<'a>) =
+        let rec flatten (t : Tree<CameraId>) =
             match t with
                 | Empty -> []
                 | Node(a,c) -> (a, cams.[a]) :: (c |> List.collect flatten)
@@ -512,6 +510,30 @@ module PhotoNetwork =
         
     let ofList (cfg : PhotoNetworkConfig) (cams : list<CameraId * MapExt<TrackId, V2d>>) =
         cams |> MapExt.ofList |> ofMap cfg
+
+    let tracks (net : PhotoNetwork) =
+        let mutable measurements = MapExt.empty
+
+        for camPair in net.usedEdges do
+            let (l,r) = camPair
+            let edge = net.edges.[camPair]
+
+            let obs = MapExt.intersect edge.leftObservations edge.rightObservations
+            
+            for (tid, (lObs,rObs)) in MapExt.toSeq obs do
+                let ms =
+                    match MapExt.tryFind tid measurements with
+                        | Some r -> r
+                        | None ->
+                            let r = ref MapExt.empty
+                            measurements <- MapExt.add tid r measurements
+                            r
+                ms :=
+                    !ms 
+                        |> MapExt.add l lObs
+                        |> MapExt.add r rObs
+
+        measurements |> MapExt.map (fun _ r -> !r)
 
     let transformed (t : Trafo3d) (net : PhotoNetwork) =
         { net with

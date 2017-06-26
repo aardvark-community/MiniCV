@@ -30,7 +30,7 @@ let testRays() =
 
     let results = 
         Array.zip r0 r1
-            |> Array.map (fun (l,r) -> Ray.intersection [l;r])
+            |> Array.map (fun (l,r) -> Ray.intersection [l;r] |> Option.get)
 
     let errorCount =
         Array.zip points results
@@ -358,7 +358,7 @@ let renderNetwork () =
         )
         
     let cameras = 
-        List.init 15 ( fun i ->
+        List.init 5 ( fun i ->
             //if i = 0 then CameraId.New, Camera.lookAt (V3d(0,-5,0)) V3d.Zero V3d.OOI
             //else
                 CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (6.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
@@ -380,11 +380,12 @@ let renderNetwork () =
         }
 
     let rand = RandomSystem()
-    let jiggleRadius = 0.003 //03
-    let mismatchChance = 0.4 //0.2 //1 //1
+    let jiggleRadius = 0.003
+
+    let mismatchChance = 0.2 //0.4 //0.2 //1 //1
     let observeChance = 0.4
 
-    let bounds = Box2d(-V2d.II, V2d.II)
+    let bounds =       Box2d(-V2d.II, V2d.II)
     let mutable mismatchCount = 0
 
     let observe (c : Camera) =
