@@ -47,7 +47,7 @@ module OpenCV =
         extern bool cvRecoverPoses_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat1, M33d& rMat2, V3d& tVec, byte[] ms)
 
         [<DllImport(lib, EntryPoint = "cvDoStuff"); SuppressUnmanagedCodeSecurity>]
-        extern void cvDoStuff_( string[] imgs, int ct, string[] repr, int rct, string[] oFilenames)
+        extern void cvDoStuff_( nativeint[] imgs, int ct, nativeint[] repr, int rct, nativeint[] oFilenames)
 
 
     let recoverPose (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =
@@ -114,9 +114,18 @@ module OpenCV =
         let oFiles = 
             photo |> Array.map ( fun f -> Path.combine [od; (Path.GetFileName f)])
 
-        Native.cvDoStuff_(chess, 
+//        for c in chess do
+//            printfn "%s" c
+//
+//        for p in photo do
+//            printfn "%s" p
+//
+//        for p in oFiles do
+//            printfn "%s" p
+
+        Native.cvDoStuff_(chess |> Array.map Marshal.StringToHGlobalUni, 
                           chess.Length, 
-                          photo, 
+                          photo |> Array.map Marshal.StringToHGlobalUni, 
                           photo.Length, 
-                          oFiles)
+                          oFiles |> Array.map Marshal.StringToHGlobalUni)
             
