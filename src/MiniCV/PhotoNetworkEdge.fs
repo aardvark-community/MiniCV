@@ -4,6 +4,14 @@ open System
 open Aardvark.Base
 open Aardvark.Reconstruction
 
+type PhotoNetworkConfig =
+    {
+        inlierThreshold     : float
+        rootCam             : Camera
+        firstDistance       : float
+        ndcTolerance        : float
+    }
+
 type PhotoNetworkEdge =
     {
         left                : CameraId
@@ -37,7 +45,7 @@ module PhotoNetworkEdge =
             tracks              = Set.empty
         }
 
-    let create (lid : CameraId) (lObs : MapExt<TrackId, V2d>) (rid : CameraId) (rObs : MapExt<TrackId, V2d>) =
+    let create (cfg : PhotoNetworkConfig) (lid : CameraId) (lObs : MapExt<TrackId, V2d>) (rid : CameraId) (rObs : MapExt<TrackId, V2d>) =
         let mutable bothObs = MapExt.intersect lObs rObs
         if bothObs.Count < 5 then
             empty lid rid
@@ -45,7 +53,18 @@ module PhotoNetworkEdge =
             let trackIds, observations = bothObs |> MapExt.toArray |> Array.unzip
             let l, r = Array.unzip observations
 
-            let poses, mask = OpenCV.recoverPoses2 RecoverPoseConfig.Default l r
+            let ff = cfg.rootCam.focal.X / cfg.rootCam.focal.Y
+
+            let l = l |> Array.map ( fun ndc -> V2d(ndc.X, ndc.Y * ff))
+            let r = r |> Array.map ( fun ndc -> V2d(ndc.X, ndc.Y * ff))
+
+            let recoverPoseConfig = 
+                RecoverPoseConfig(cfg.rootCam.focal.X, V2d.Zero, 0.999, cfg.inlierThreshold)
+
+            let poses, mask = OpenCV.recoverPoses2 recoverPoseConfig l r
+
+            let l = ()
+            let r = ()
 
             let mutable trackCount = 0
             let mutable tracks = Set.empty

@@ -19,8 +19,8 @@ let testRays() =
         )
 
 
-    let c0 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI
-    let c1 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI
+    let c0 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI V2d.II
+    let c1 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI V2d.II
 
     let p0 = points |> Array.map (Camera.project1 c0 >> Option.get)
     let p1 = points |> Array.map (Camera.project1 c1 >> Option.get)
@@ -131,12 +131,12 @@ let testNetworks() =
     for i in 1 .. 1000 do
         let cameras = 
             List.init 10 ( fun _ ->
-                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
+                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection()) V2d.II
             )
             
         let cameras2 = 
             List.init 10 ( fun _ ->
-                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
+                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection()) V2d.II
             )
 
         let tracks = points |> Array.map (fun _ -> TrackId.New)
@@ -361,7 +361,7 @@ let renderNetwork () =
         List.init 5 ( fun i ->
             //if i = 0 then CameraId.New, Camera.lookAt (V3d(0,-5,0)) V3d.Zero V3d.OOI
             //else
-                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (6.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
+                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (6.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection()) V2d.II
         )
             
 

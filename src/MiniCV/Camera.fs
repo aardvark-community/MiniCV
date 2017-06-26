@@ -10,6 +10,7 @@ type Camera =
         forward     : V3d
         up          : V3d
         right       : V3d
+        focal       : V2d
     }
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
@@ -39,9 +40,10 @@ module Camera =
         Trafo3d.FromBasis(x,y,z,p).Inverse
 
     let viewProjTrafo1 (n : float) (f : float) (c : Camera) =
+        let fTrafo = Trafo3d.Scale(V3d(c.focal.X, c.focal.Y, 1.0))
         let view = viewTrafo c
         let proj = projTrafo n f
-        view * proj
+        view * proj * fTrafo
 
     let transformed (t : Trafo3d) (c : Camera) =
         let fw = t.Forward
@@ -50,6 +52,7 @@ module Camera =
             forward = fw.TransformDir(c.forward)        |> Vec.normalize
             up = fw.TransformDir(c.up)                  |> Vec.normalize
             right = fw.TransformDir(c.right)            |> Vec.normalize
+            focal = c.focal
         }
 
     let transformedView (t : Trafo3d) (c : Camera) =
@@ -61,6 +64,7 @@ module Camera =
             forward     = toRotWorld.TransformDir(-V3d.OOI) |> Vec.normalize
             up          = toRotWorld.TransformDir(V3d.OIO) |> Vec.normalize
             right       = toRotWorld.TransformDir(V3d.IOO) |> Vec.normalize
+            focal       = c.focal
         }
        
     let project1 (c : Camera) (pt : V3d) =
@@ -72,19 +76,19 @@ module Camera =
                 Vec.dot o -c.forward
             )
 
-        let c = pc.XY / pc.Z
+        let c = c.focal * pc.XY / pc.Z
         if c.AllGreaterOrEqual(-1.0) && c.AllSmallerOrEqual(1.0) then Some c
         else None
 
     let unproject1 (c : Camera) (pt : V2d) =
         let direction =
-            pt.X * c.right +
-            pt.Y * c.up +
+            (pt.X / c.focal.X) * c.right +
+            (pt.Y / c.focal.Y) * c.up +
             -c.forward
 
         Ray3d(c.location, -Vec.normalize direction)
 
-    let lookAt (eye : V3d) (center : V3d) (sky : V3d) =
+    let lookAt (eye : V3d) (center : V3d) (sky : V3d) (f : V2d) =
         let fw = center - eye       |> Vec.normalize
         let r = Vec.cross fw sky    |> Vec.normalize
         let u = Vec.cross r fw      |> Vec.normalize
@@ -94,6 +98,7 @@ module Camera =
             forward = fw
             up = u
             right = r
+            focal = f
         }
 
     let angles (l : Camera) (r : Camera) =

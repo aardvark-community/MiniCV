@@ -6,22 +6,20 @@ open Aardvark.Reconstruction
 
 
 
-type PhotoNetworkConfig =
-    {
-        recoverPoseConfig   : RecoverPoseConfig
-        rootCam             : Camera
-        firstDistance       : float
-        ndcTolerance        : float
-    }
-
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module PhotoNetworkConfig =
     let Default =
         {
-            recoverPoseConfig   = RecoverPoseConfig.Default
-            rootCam             = Camera.lookAt (V3d(0.0, 5.0, 0.0)) V3d.OOO V3d.OOI
+            inlierThreshold     = 0.005
+            rootCam             = Camera.lookAt (V3d(0.0, 5.0, 0.0)) V3d.OOO V3d.OOI V2d.II
             firstDistance       = 5.0
             ndcTolerance        = Double.PositiveInfinity // => 0.05 => 5% => 50px@1k
+        }
+
+    let withFocalLength (f : V2d) (cfg : PhotoNetworkConfig) =
+        {
+            cfg with
+                rootCam = { cfg.rootCam with focal = f }
         }
 
 [<CustomEquality; NoComparison>]
@@ -157,7 +155,7 @@ module PhotoNetwork =
             let edge = 
                 match MapExt.tryFind (pid, cid) network.edges with
                     | Some e -> e
-                    | _ -> PhotoNetworkEdge.create pid parentObs cid observations
+                    | _ -> PhotoNetworkEdge.create network.config pid parentObs cid observations
 
             if edge.trackCount >= minTrackCount then
                 
@@ -220,7 +218,7 @@ module PhotoNetwork =
                     let edge = 
                         match MapExt.tryFind (pid, cid) network.edges with
                             | Some e -> e
-                            | _ -> PhotoNetworkEdge.create pid parentObs cid observations
+                            | _ -> PhotoNetworkEdge.create network.config pid parentObs cid observations
                     (pid, cid), edge
                 )
                 |> MapExt.ofSeq
@@ -260,7 +258,7 @@ module PhotoNetwork =
 
                         if passt then
                             e12.leftToRight |> List.collect (fun p12 ->
-                                let (cost, p12) = CameraPose.findScaled network.config.recoverPoseConfig.InlierThreshold cam1 points p12
+                                let (cost, p12) = CameraPose.findScaled network.config.inlierThreshold cam1 points p12
                                 let cam2 = Camera.transformedView (CameraPose.transformation p12) cam1
                                     
                                 [(cost, cam0, cam1, cam2)]
@@ -301,7 +299,7 @@ module PhotoNetwork =
                     let edge = 
                         match MapExt.tryFind (pid, cid) network.edges with
                             | Some e -> e
-                            | _ -> PhotoNetworkEdge.create pid parentObs cid observations
+                            | _ -> PhotoNetworkEdge.create network.config pid parentObs cid observations
                     (pid, cid), edge
                 )
                 |> MapExt.ofSeq
@@ -313,7 +311,7 @@ module PhotoNetwork =
                 let cam1 = MapExt.find c1 network.cameras
                 let configurations =
                     e12.leftToRight |> List.map (fun p12 ->
-                        let (cost, e12) = CameraPose.findScaled network.config.recoverPoseConfig.InlierThreshold cam1 points p12
+                        let (cost, e12) = CameraPose.findScaled network.config.inlierThreshold cam1 points p12
                         cost, Camera.transformedView (CameraPose.transformation e12) cam1
                     )
 
@@ -460,7 +458,7 @@ module PhotoNetwork =
                         let (cj, oj) = camsArr.[j]
 
                         Report.ProgressDelta(step)
-                        let e = PhotoNetworkEdge.create ci oi cj oj
+                        let e = PhotoNetworkEdge.create cfg ci oi cj oj
                         yield (ci, cj), e
             ]
 
