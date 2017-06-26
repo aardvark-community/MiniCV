@@ -72,14 +72,15 @@ module Camera =
                 Vec.dot o -c.forward
             )
 
-        pc.XY / pc.Z
+        let c = pc.XY / pc.Z
+        if c.AllGreaterOrEqual(-1.0) && c.AllSmallerOrEqual(1.0) then Some c
+        else None
 
     let unproject1 (c : Camera) (pt : V2d) =
-        let pc = V3d(pt, 1.0)
         let direction =
-            pc.X * c.right +
-            pc.Y * c.up +
-            pc.Z * -c.forward
+            pt.X * c.right +
+            pt.Y * c.up +
+            -c.forward
 
         Ray3d(c.location, Vec.normalize direction)
 

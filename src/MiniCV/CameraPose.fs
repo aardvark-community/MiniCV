@@ -36,7 +36,7 @@ module CameraPose =
         let s = sign f
         CameraPose(pose.RotationIndex, s * pose.ScaleSign, pose.Rotation, f * pose.Translation, pose.IsInverse)
 
-    let findScaled (srcCam : Camera) (worldObservations : list<V3d * V2d>) (pose : CameraPose) =
+    let findScaled (inlierThreshold : float) (srcCam : Camera) (worldObservations : list<V3d * V2d>) (pose : CameraPose) =
         // todo: remove outliers
         match worldObservations with
         | [] -> Double.PositiveInfinity, CameraPose()
@@ -57,47 +57,121 @@ module CameraPose =
                     |> dst0View.Forward.TransformDir
                     |> Vec.normalize
 
-            let scales =
-                let t = dst0Translation
-                worldObservations |> List.collect (fun (worldPoint, obs) ->
-                    let point = dst0View.Forward.TransformPos(worldPoint)
-                    // project(point + s * t) = obs
-                
-                    // (point.xy + s * t.xy) / (point.z + s * t.z) = obs
-                    // point.xy + s * t.xy  = obs * (point.z + s * t.z)
-                    // point.xy + s * t.xy  = obs * point.z + s * obs * t.z
-                    // s * t.xy - s * obs * t.z  = obs * point.z - point.xy
-                    // s * (t.xy - obs * t.z) = obs * point.z - point.xy
-                    // s = (obs * point.z - point.xy) / (t.xy - obs * t.z)
-                    let z = (obs * point.Z - point.XY) 
-                    let n = t.XY - obs * t.Z
 
-                    let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
-
-                    match nt with
-                        | true -> []
-                        | _ -> 
-                            let s = -z / n
-
-                            [s.X; s.Y]
-
-
-                )
-            
-            match scales with
-            | [] -> Double.PositiveInfinity, CameraPose()
-            | _ ->
-                let scaleRange = Range1d scales
-                let s = List.average scales
-
+            let countInliers (s : float) =
                 let finalPose = scale s pose
                 let dstCam = Camera.transformedView (transformation finalPose) srcCam
 
-                let mutable cnt = 0
-                let cost = worldObservations |> List.sumBy (fun (w,o) -> cnt <- cnt + 1; Camera.project1 dstCam w - o |> Vec.lengthSquared)
-                let avgCost = sqrt (cost / float cnt)
+                let mutable count = 0
+                for (w,obs) in worldObservations do
+                    match Camera.project1 dstCam w with
+                        | Some c ->
+                            let d = Vec.length (c - obs)
+                            if d < inlierThreshold then
+                                count <- count + 1
+                        | None ->
+                                ()
+                count
+                 
 
-                avgCost, finalPose
+            let mutable bestScale = 0.0
+            let mutable bestCount = -1
+            let t = dst0Translation
+            for (worldPoint, obs) in worldObservations do
+                let point = dst0View.Forward.TransformPos(worldPoint)
+                let z = (obs * point.Z - point.XY) 
+                let n = t.XY - obs * t.Z
+
+                let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
+
+                match nt with
+                    | true -> ()
+                    | _ -> 
+                        let s = -z / n
+
+                        let cx = countInliers s.X
+                        let cy = countInliers s.Y
+
+                        if cx > bestCount then
+                            bestCount <- cx
+                            bestScale <- s.X
+
+                        if cy > bestCount then
+                            bestCount <- cy
+                            bestScale <- s.Y
+
+                        //[s.X; s.Y]
+
+            
+            let finalPose = scale bestScale pose
+            let dstCam = Camera.transformedView (transformation finalPose) srcCam
+
+            let mutable cnt = 0
+            let cost = 1.0 / float (2 + bestCount)
+                //worldObservations |> List.sumBy (fun (w,o) -> 
+                //    match Camera.project1 dstCam w with
+                //        | Some c ->
+                //                cnt <- cnt + 1
+                //                c - o |> Vec.lengthSquared
+                //        | None ->
+                //                0.0
+                //)
+
+            //let avgCost = sqrt (cost / float cnt)
+
+            cost, finalPose
+
+
+            //let scales =
+            //    let t = dst0Translation
+            //    worldObservations |> List.collect (fun (worldPoint, obs) ->
+            //        let point = dst0View.Forward.TransformPos(worldPoint)
+            //        // project(point + s * t) = obs
+                
+            //        // (point.xy + s * t.xy) / (point.z + s * t.z) = obs
+            //        // point.xy + s * t.xy  = obs * (point.z + s * t.z)
+            //        // point.xy + s * t.xy  = obs * point.z + s * obs * t.z
+            //        // s * t.xy - s * obs * t.z  = obs * point.z - point.xy
+            //        // s * (t.xy - obs * t.z) = obs * point.z - point.xy
+            //        // s = (obs * point.z - point.xy) / (t.xy - obs * t.z)
+            //        let z = (obs * point.Z - point.XY) 
+            //        let n = t.XY - obs * t.Z
+
+            //        let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
+
+            //        match nt with
+            //            | true -> []
+            //            | _ -> 
+            //                let s = -z / n
+
+            //                [s.X; s.Y]
+
+
+            //    )
+            
+            //match scales with
+            //| [] -> Double.PositiveInfinity, CameraPose()
+            //| _ ->
+            //    let scaleRange = Range1d scales
+            //    let s = List.average scales
+
+            //    let finalPose = scale s pose
+            //    let dstCam = Camera.transformedView (transformation finalPose) srcCam
+
+            //    let mutable cnt = 0
+            //    let cost = 
+            //        worldObservations |> List.sumBy (fun (w,o) -> 
+            //            match Camera.project1 dstCam w with
+            //                | Some c ->
+            //                        cnt <- cnt + 1
+            //                        c - o |> Vec.lengthSquared
+            //                | None ->
+            //                        0.0
+            //        )
+
+            //    let avgCost = sqrt (cost / float cnt)
+
+            //    avgCost, finalPose
 
     let inverse (pose : CameraPose) =
         // qi = R * (pi + t)

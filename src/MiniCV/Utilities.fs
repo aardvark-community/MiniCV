@@ -4,6 +4,13 @@ open System
 open Aardvark.Base
 open System.Threading
 
+module Seq =
+    let choosei (f : int -> 'a -> Option<'b>) (s : seq<'a>) = s |> Seq.mapi f |> Seq.choose id
+
+module List =
+    let choosei (f : int -> 'a -> Option<'b>) (s : list<'a>) = s |> List.mapi f |> List.choose id
+
+
 [<Struct; CustomEquality; CustomComparison>]
 type CameraId private(id : int) =
     static let mutable current = 0
@@ -76,7 +83,7 @@ module private Option =
 module MapExt =
     let intersect (l : MapExt<'k, 'a>) (r : MapExt<'k, 'b>) =
         MapExt.choose2 (constF (Option.map2 tup)) l r
-
+        
     let values (r : MapExt<'k, 'v>) =
         r |> MapExt.toSeq |> Seq.map snd
 

@@ -103,8 +103,11 @@ module PhotoNetwork =
                    |> Seq.sumBy ( fun (tid, point) ->
                         let ms = !measurements.GetOrCreate(tid, fun _ -> ref [])
                         ms |> List.sumBy (fun (_,cam,obs) ->
-                                let real = point |> Camera.project1 cam
-                                Vec.lengthSquared (obs - real)
+                                match point |> Camera.project1 cam with
+                                    | Some real -> 
+                                        Vec.lengthSquared (obs - real)
+                                    | None ->
+                                        0.0
                            )
                    )
 
@@ -246,19 +249,20 @@ module PhotoNetwork =
                             let t = p01 |> CameraPose.transformation
                             Camera.transformedView t cam0
 
+                   
+                        let worldPoints = triangulatePoints c0 cam0 c1 cam1 network
                         let points =
-                            let worldPoints = triangulatePoints c0 cam0 c1 cam1 network
                             MapExt.intersect worldPoints observations
                                 |> MapExt.toList
                                 |> List.map snd
 
                         let passt =
-                            points |> List.forall ( fun (p,_) -> Vec.dot (p - (cam1.location)).Normalized cam1.forward >= 0.0 )
+                            worldPoints |> MapExt.values |> Seq.forall ( fun p -> Vec.dot (p - (cam1.location)).Normalized cam1.forward >= 0.0 )
                         
 
                         if passt then
                             e12.leftToRight |> List.collect (fun p12 ->
-                                let (cost, p12) = CameraPose.findScaled cam1 points p12
+                                let (cost, p12) = CameraPose.findScaled network.config.recoverPoseConfig.InlierThreshold cam1 points p12
                                 let cam2 = Camera.transformedView (CameraPose.transformation p12) cam1
                                     
                                 [(cost, cam0, cam1, cam2)]
@@ -311,7 +315,7 @@ module PhotoNetwork =
                 let cam1 = MapExt.find c1 network.cameras
                 let configurations =
                     e12.leftToRight |> List.map (fun p12 ->
-                        let (cost, e12) = CameraPose.findScaled cam1 points p12
+                        let (cost, e12) = CameraPose.findScaled network.config.recoverPoseConfig.InlierThreshold cam1 points p12
                         cost, Camera.transformedView (CameraPose.transformation e12) cam1
                     )
 

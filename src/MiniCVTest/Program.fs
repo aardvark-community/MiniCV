@@ -22,8 +22,8 @@ let testRays() =
     let c0 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI
     let c1 = Camera.lookAt (rand.UniformV3dDirection() * 5.0) V3d.Zero V3d.OOI
 
-    let p0 = points |> Array.map (Camera.project1 c0)
-    let p1 = points |> Array.map (Camera.project1 c1)
+    let p0 = points |> Array.map (Camera.project1 c0 >> Option.get)
+    let p1 = points |> Array.map (Camera.project1 c1 >> Option.get)
 
     let r0 = p0 |> Array.map (Camera.unproject1 c0)
     let r1 = p1 |> Array.map (Camera.unproject1 c1)
@@ -127,6 +127,7 @@ let testNetworks() =
         )
 
 
+
     for i in 1 .. 1000 do
         let cameras = 
             List.init 10 ( fun _ ->
@@ -143,17 +144,20 @@ let testNetworks() =
         let tracks2 = points |> Array.map (fun _ -> TrackId.New)
 
         let observe (c : Camera) =
-            points |> Seq.mapi (fun i p ->
+            points |> Seq.choosei (fun i p ->
                 let tid = tracks.[i]
-                let c = Camera.project1 c p
-                tid, c
+                match Camera.project1 c p with
+                    | Some c -> Some (tid, c)
+                    | None -> None
+                    
             ) |> MapExt.ofSeq
 
         let observe2 (c : Camera) =
-            points |> Seq.mapi (fun i p ->
+            points |> Seq.choosei (fun i p ->
                 let tid = tracks2.[i]
-                let c = Camera.project1 c p
-                tid, c
+                match Camera.project1 c p with
+                    | Some c -> Some (tid, c)
+                    | None -> None
             ) |> MapExt.ofSeq
 
         let cams = cameras |> List.map ( fun (cid, c) -> cid, observe c ) 
@@ -354,10 +358,10 @@ let renderNetwork () =
         )
         
     let cameras = 
-        List.init 5 ( fun i ->
+        List.init 15 ( fun i ->
             //if i = 0 then CameraId.New, Camera.lookAt (V3d(0,-5,0)) V3d.Zero V3d.OOI
             //else
-                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (2.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
+                CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (6.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection())
         )
             
 
@@ -376,41 +380,88 @@ let renderNetwork () =
         }
 
     let rand = RandomSystem()
-    let jiggleRadius = 0.01
-    let mismatchChance = 0.03 //1
+    let jiggleRadius = 0.003 //03
+    let mismatchChance = 0.4 //0.2 //1 //1
     let observeChance = 0.4
 
     let bounds = Box2d(-V2d.II, V2d.II)
     let mutable mismatchCount = 0
 
     let observe (c : Camera) =
-        points |> Seq.mapi (fun i p ->
+        points 
+        |> Seq.toList
+        |> List.mapi ( fun idx p -> idx,p )
+        |> List.filter (fun _ -> rand.UniformDouble() <= observeChance)
+        |> List.choose (fun (i,p) ->
             let tid = tracks.[i]
             if rand.UniformDouble() <= mismatchChance then
                 mismatchCount <- mismatchCount + 1
-                tid, rand.UniformV2d(bounds)
+                Some (tid, rand.UniformV2d(bounds))
             else
-                let c = Camera.project1 c p
+                match Camera.project1 c p with
+                    | Some c ->
 
-                let c = 
-                    if jiggleRadius > 0.0 then
-                        c + rand.UniformV2dDirection() * rand.UniformDouble() * jiggleRadius
-                    else
-                        c
+                        let c = 
+                            if jiggleRadius > 0.0 then
+                                c + rand.UniformV2dDirection() * rand.UniformDouble() * jiggleRadius
+                            else
+                                c
 
-                tid, c
+                        Some (tid, c)
+                    | None ->
+                        None
         )
-        |> Seq.filter (fun _ -> rand.UniformDouble() <= observeChance)
-        |> MapExt.ofSeq
+        |> MapExt.ofList
 
     let cams = cameras |> List.map ( fun (cid, c) -> cid, observe c ) 
             
     let nets = cams |> PhotoNetwork.ofList PhotoNetworkConfig.Default
     
-    let trafo =
+    let trafo (src : PhotoNetwork) (dst : PhotoNetwork) =
+        let camsBoth = MapExt.intersect src.cameras dst.cameras
+
+        match Seq.toList (MapExt.values camsBoth) with
+            | (a0, b0) :: (a1, b1) :: _ ->
+                // R * a0.forward = a1.forward
+                // dot R.R0 a0.forward = a1.forward.X
+                // dot R.R0 a0.right = a1.right.X
+                // dot R.R0 a0.up = a1.up.X
+
+                // dot R.R1 a0.forward = a1.forward.Y
+                // dot R.R2 a0.forward = a1.forward.Z
+                    
+                let solve (i : int) =
+                    let arr =
+                        arrarr [|
+                            [| a0.forward.X; a0.forward.Y; a0.forward.Z |]    
+                            [| a0.right.X; a0.right.Y; a0.right.Z |]    
+                            [| a0.up.X; a0.up.Y; a0.up.Z |]    
+                        |]
+
+                    let b = [| b0.forward.[i]; b0.right.[i]; b0.up.[i]|]
+
+                    let perm = arr.LuFactorize()
+                    arr.LuSolve(perm, b) |> V3d
+
+                let R = M33d.FromRows(solve 0, solve 1, solve 2) |> M44d.op_Explicit
+
+                let db = b1.location - b0.location |> Vec.length
+                let da = a1.location - a0.location |> Vec.length
+
+                let f = db / da
+
+                Trafo3d.Translation(-a0.location) * Trafo3d.Scale(f) * Trafo3d(R, R.Inverse) * Trafo3d.Translation(b0.location)
+
+
+            | _ ->
+                Trafo3d.Identity
+
+
+    let trafo = //Trafo3d.Translation(0.0,10.0,0.0)
         match nets with
             | net :: _ ->
-                pointCloudTrafo net.points original.points
+                trafo net original *
+                Trafo3d.Translation(0.0, 15.0, 0.0)
             | _ ->
                 Trafo3d.Identity
 
@@ -469,7 +520,7 @@ let main argv =
     Aardvark.Init()
     //Log.error "%A" System.Environment.CurrentDirectory
 
-    //renderNetwork()
-    undistort()
+    renderNetwork()
+    //undistort()
 
     0

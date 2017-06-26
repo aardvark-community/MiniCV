@@ -30,7 +30,7 @@ type RecoverPoseConfig  =
             }
 
         static member Default =
-            RecoverPoseConfig(1.0, V2d.Zero, 0.999, 0.01)
+            RecoverPoseConfig(1.0, V2d.Zero, 0.999, 0.005)
 
     end
 
