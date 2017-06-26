@@ -89,6 +89,7 @@ module OpenCV =
 
 
     module Native =
+
         [<Literal>]
         let lib = @"MiniCVNative"
         
@@ -104,6 +105,8 @@ module OpenCV =
         [<DllImport(lib, EntryPoint = "cvFreeFeatures"); SuppressUnmanagedCodeSecurity>]
         extern void cvFreeFeatures_(DetectorResult* res)
 
+        [<DllImport(lib, EntryPoint = "cvDoStuff"); SuppressUnmanagedCodeSecurity>]
+        extern void cvDoStuff_( string[] imgs, int ct, string[] repr, int rct, string[] oFilenames)
 
     let private copy (src : nativeptr<'a>) (dst : 'a[]) (cnt : int) =
         let gc = GCHandle.Alloc(dst, GCHandleType.Pinned)
@@ -186,3 +189,32 @@ module OpenCV =
             Array.map ((<>) 0uy) ms
 
         possiblePoses, mask
+
+    open System
+    open System.IO
+    open System.Text
+
+    let undistortImages (chessboardDir : string) (photoDir : string) =
+
+        let chess = Directory.GetFiles(chessboardDir) 
+                        |> Array.map ( fun f -> f.ToLower() ) 
+                        |> Array.filter ( fun fn -> Path.GetExtension fn = ".jpg" )
+        
+        let photo = Directory.GetFiles(photoDir) 
+                        |> Array.map ( fun f -> f.ToLower() ) 
+                        |> Array.filter ( fun fn -> Path.GetExtension fn = ".jpg" )
+
+        let od =
+            let p = Path.combine [photoDir; "undistorted"]
+            if p |> Directory.Exists |> not then Directory.CreateDirectory p |> ignore
+            p
+
+        let oFiles = 
+            photo |> Array.map ( fun f -> Path.combine [od; (Path.GetFileName f)])
+
+        Native.cvDoStuff_(chess, 
+                          chess.Length, 
+                          photo, 
+                          photo.Length, 
+                          oFiles)
+            

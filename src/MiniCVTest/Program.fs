@@ -456,24 +456,20 @@ let renderGraphical() =
     
     ()
 
-
+let undistort() =
+    
+    OpenCV.undistortImages 
+        @"D:\bla2\calib\small"
+        @"D:\bla2\buch\small\1"
 
 
 [<EntryPoint>]
 let main argv = 
     Ag.initialize()
     Aardvark.Init()
-    Log.error "%A" System.Environment.CurrentDirectory
-
-    let img1 = PixImage.Create @"C:\Users\Schorsch\Desktop\test\image0.jpg"
-    let img = img1.ToPixImage<byte>(Col.Format.RGB)
-
-    let features = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze img.Volume.Data img.Size.X img.Size.Y img.ChannelCount
-
-    printfn "%A" features
-
-
+    //Log.error "%A" System.Environment.CurrentDirectory
 
     //renderNetwork()
+    undistort()
 
     0
