@@ -211,24 +211,30 @@ DllExport(void) cvDoStuff(std::string* imgs1, int ct, std::string* repr1, int rc
 DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, int channels, int mode = FEATURE_MODE_AKAZE) {
 
 	int fmt;
+	int convert;
 	switch (channels)
 	{
 		case 1: 
 			fmt = CV_8UC1;
+			convert = 0;
 			break;
 		case 2:
 			fmt = CV_8UC2;
+			convert = 0;
 			break;
 		case 3:
 			fmt = CV_8UC3;
+			convert = CV_RGB2GRAY;
 			break;
 		case 4:
 			fmt = CV_8UC4;
+			convert = CV_RGBA2GRAY;
 			break;
 		default:
 			return nullptr;
 	}
-
+	cv::setBreakOnError(false);
+	
 	Mat input(height, width, fmt, (void*)data);
 	cv::Ptr<cv::FeatureDetector> detector;
 	switch (mode)
@@ -247,11 +253,16 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 	}
 
 	Mat img;
-	cv::cvtColor(input, img, CV_RGB2GRAY);
+	if(convert != 0) cv::cvtColor(input, img, CV_RGB2GRAY);
+	else img = input;
 
-	vector<KeyPoint> points;
-	vector<float> descriptors;
-	detector->detectAndCompute(img, noArray(), points, descriptors);
+	std::vector<KeyPoint> points;
+	Mat descriptorsM;
+	detector->detect(img, points);
+	detector->compute(img, points, descriptorsM);
+
+	auto descriptorCount = descriptorsM.total();
+	
 
 	if (points.size() == 0)
 	{
@@ -264,11 +275,9 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 	}
 	else
 	{
-		printf("descriptors: %d\n", descriptors.size());
-		printf("points: %d\n", points.size());
 
 		auto points1 = new KeyPoint2d[points.size()];
-		auto descriptors1 = new float[descriptors.size()];
+		auto descriptors1 = new uchar[descriptorCount];
 
 		for (int i = 0; i < points.size(); i++)
 		{
@@ -279,16 +288,18 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 			points1[i].response = points[i].response;
 			points1[i].size = points[i].size;
 		}
-
-		std::copy(descriptors.begin(), descriptors.end(), descriptors1);
-		//std::copy(descriptors.begin<float>(), descriptors.end<float>(), descriptors1);
-
+		if (descriptorsM.elemSize() != 1)
+		{
+			printf("BAD DESCRIPTORS\n");
+		}
+		memcpy(descriptors1, descriptorsM.data, descriptorCount);
+		
 		detector->clear();
 		img.release();
 
 		auto res = new DetectorResult();
 		res->PointCount = (int)points.size();
-		res->DescriptorEntries = (int)descriptors.size();
+		res->DescriptorEntries = (int)descriptorCount;
 		res->Points = points1;
 		res->Descriptors = descriptors1;
 

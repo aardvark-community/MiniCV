@@ -521,7 +521,12 @@ let main argv =
     Aardvark.Init()
     //Log.error "%A" System.Environment.CurrentDirectory
 
-    renderNetwork()
+    let img = PixImage.Create @"C:\Users\Schorsch\Desktop\test\image0.jpg"
+    let img = img.ToPixImage<byte>(Col.Format.RGB)
+    let features = OpenCV.detectFeatures OpenCV.DetectorMode.Brisk img
+    printfn "%A" features
+
+    //renderNetwork()
     //undistort()
 
     0

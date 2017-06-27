@@ -20,7 +20,7 @@ typedef struct DetectorResult_ {
 	int PointCount;
 	int DescriptorEntries;
 	KeyPoint2d* Points;
-	float* Descriptors;
+	uchar* Descriptors;
 } DetectorResult;
 
 #define FEATURE_MODE_AKAZE 1

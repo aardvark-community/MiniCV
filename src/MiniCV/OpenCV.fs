@@ -35,7 +35,7 @@ type RecoverPoseConfig  =
     end
 
 [<Struct>]
-type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : float, octave : int, descriptorDimension : int, descriptors : float[]) =
+type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : float, octave : int, descriptorDimension : int, descriptors : uint8[]) =
     member x.Index = index
     member x.Position = pos
     member x.Size = size
@@ -45,7 +45,7 @@ type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : fl
 
     member x.Descriptor =
         let fst = int64 descriptorDimension * int64 index
-        Vector<float>(descriptors, fst, int64 descriptorDimension, 1L)
+        Vector<uint8>(descriptors, fst, int64 descriptorDimension, 1L)
         
     override x.ToString() =
         sprintf "{ pos = %A; size = %A; angle = %A }" pos size angle
@@ -53,7 +53,7 @@ type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : fl
 type FeatureResult =
     {
         points                  : KeyPoint[]
-        descriptors             : float[]
+        descriptors             : uint8[]
         descriptorDimension     : int
     }
 
@@ -79,7 +79,7 @@ module OpenCV =
             val mutable public PointCount : int
             val mutable public DescriptorEntries : int
             val mutable public Points : nativeptr<KeyPoint2d>
-            val mutable public Descriptors : nativeptr<float32>
+            val mutable public Descriptors : nativeptr<uint8>
         end
 
     type DetectorMode =
@@ -115,28 +115,29 @@ module OpenCV =
         finally
             gc.Free()
 
-    let detectFeatures (mode : DetectorMode) (data : byte[]) (width : int) (height : int) (channels : int) =
-        let gc = GCHandle.Alloc(data, GCHandleType.Pinned)
+    let detectFeatures (mode : DetectorMode) (img : PixImage<byte>) =
+        let img = img.ToCanonicalDenseLayout() |> unbox<PixImage<byte>>
+
+        let gc = GCHandle.Alloc(img.Volume.Data, GCHandleType.Pinned)
         let mutable ptr = NativePtr.zero
         try
-            ptr <- Native.cvDetectFeatures_(NativePtr.ofNativeInt (gc.AddrOfPinnedObject()), width, height, channels, mode)
+            ptr <- Native.cvDetectFeatures_(NativePtr.ofNativeInt (gc.AddrOfPinnedObject()), img.Size.X, img.Size.Y, img.ChannelCount, mode)
             let v = NativePtr.read ptr
             
             if v.PointCount = 0 then
                 {
                     points                  = [||]
                     descriptors             = [||]
-                    descriptorDimension     = 64
+                    descriptorDimension     = 61
                 }
             else
                 let pts : KeyPoint2d[] = Array.zeroCreate v.PointCount
-                let descriptors : float32[] = Array.zeroCreate v.DescriptorEntries
+                let descriptors : uint8[] = Array.zeroCreate v.DescriptorEntries
 
                 copy v.Points pts pts.Length
                 copy v.Descriptors descriptors descriptors.Length
 
                 let dim = descriptors.Length / pts.Length
-                let descriptors = descriptors |> Array.map float
 
                 let points = pts |> Array.mapi (fun i pt -> KeyPoint(i, V2d pt.pt, float pt.size, float pt.angle, float pt.response, pt.octave, dim, descriptors))
                 {
