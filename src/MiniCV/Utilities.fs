@@ -10,6 +10,16 @@ module Seq =
 module List =
     let choosei (f : int -> 'a -> Option<'b>) (s : list<'a>) = s |> List.mapi f |> List.choose id
 
+module Array =
+    let choosei (f : int -> 'a -> Option<'b>) (a : 'a[]) =
+        let res = System.Collections.Generic.List<'b>(a.Length)
+        for i in 0 .. a.Length - 1 do
+            match f i a.[i] with
+                | Some r -> res.Add r
+                | _ -> ()
+        res.ToArray()
+
+
 
 [<Struct; CustomEquality; CustomComparison>]
 type CameraId private(id : int) =

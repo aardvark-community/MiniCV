@@ -521,10 +521,17 @@ let main argv =
     Aardvark.Init()
     //Log.error "%A" System.Environment.CurrentDirectory
 
-    let img = PixImage.Create @"C:\Users\Schorsch\Desktop\test\image0.jpg"
-    let img = img.ToPixImage<byte>(Col.Format.RGB)
-    let features = OpenCV.detectFeatures OpenCV.DetectorMode.Brisk img
-    printfn "%A" features
+    let i0 = PixImage.Create(@"C:\Users\Schorsch\Desktop\test\image0.jpg").ToPixImage<byte>(Col.Format.RGB)
+    let i1 = PixImage.Create(@"C:\Users\Schorsch\Desktop\test\image1.jpg").ToPixImage<byte>(Col.Format.RGB)
+
+    let f0 = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze i0
+    let f1 = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze i1
+
+    Log.startTimed "matching %d with %d" f0.points.Length f1.points.Length
+    let matches = ImageFeatures.matches f0 f1
+    Log.stop()
+
+    printfn "%A" matches
 
     //renderNetwork()
     //undistort()

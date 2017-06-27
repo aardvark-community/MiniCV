@@ -50,12 +50,136 @@ type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : fl
     override x.ToString() =
         sprintf "{ pos = %A; size = %A; angle = %A }" pos size angle
 
-type FeatureResult =
+type ImageFeatures =
     {
         points                  : KeyPoint[]
         descriptors             : uint8[]
         descriptorDimension     : int
     }
+
+[<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+module ImageFeatures =
+    let private cmp (d : int) = Func<Vector<'a>, Vector<'a>, int>(fun (l : Vector<'a>) (r : Vector<'a>) -> compare l.[d % int l.S] r.[d % int r.S])
+    
+    let rec private pointKdTree (perm : int[]) (data : Vector<'a>[]) (l : int) (r : int) (d : int)=
+        if r > l then
+            let m = (r - l) / 2
+            perm.PermutationQuickMedian(data, cmp d, l, r, m)
+            pointKdTree perm data l (l + m) (d + 1)
+            pointKdTree perm data (l + m + 1) r (d + 1)
+
+    type private ClosestPoints =
+        {
+            count : int
+            matches : MapExt<float, list<int>>
+        }
+
+        member x.Count = x.count
+        member x.Min = x.matches.TryMinKey |> Option.defaultValue Double.NegativeInfinity
+        member x.Max = x.matches.TryMaxKey |> Option.defaultValue Double.PositiveInfinity
+
+    [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
+    module private ClosestPoints =
+        let empty = { count = 0; matches = MapExt.empty }
+
+        let add (n : int) (dist : float) (id : int) (c : ClosestPoints) =
+            if c.count = n then
+                let mm =
+                    MapExt.alter dist (fun old ->
+                        let old = Option.defaultValue [] old
+                        Some (id :: old)
+                    ) c.matches
+
+                let max = mm.TryMaxKey |> Option.get
+                { 
+                    count = n
+                    matches = 
+                        mm |> MapExt.alter max (fun o -> 
+                            match o with
+                                | Some [_] -> None
+                                | Some (_ :: rest) -> Some rest
+                                | _ -> None
+                        )
+                }
+            else
+                { 
+                    count = c.count + 1
+                    matches = 
+                        MapExt.alter dist (fun old ->
+                            let old = Option.defaultValue [] old
+                            Some (id :: old)
+                        ) c.matches
+                }
+           
+
+        let union (l : ClosestPoints) (r : ClosestPoints) =
+            { count = l.count + r.count; matches = MapExt.unionWith List.append l.matches r.matches }
+
+    let rec private nearest (current : ClosestPoints) (n : int) (maxDist : float) (sub : 'a -> 'a -> float) (perm : int[]) (data : Vector<'a>[]) (l : int) (r : int) (d : int) (v : Vector<'a>) : ClosestPoints =
+        let dist (l : Vector<'a>) (r : Vector<'a>) =
+            let mutable sum = 0.0
+            for i in 0 .. int l.Size - 1 do
+                let v = sub r.[i] l.[i]
+                sum <- sum + v * v
+            sqrt sum
+
+        if r > l then
+            let m = (r - l) / 2
+            let mm = data.[perm.[l + m]]
+            let dimDist = sub v.[d % int v.Size] mm.[d % int mm.Size]
+            let dist = dist v mm
+
+            let current =
+                if dist < maxDist then ClosestPoints.add n dist perm.[m] current
+                else current
+
+            let maxDist = 
+                if current.Count >= n then current.Max
+                else maxDist
+
+            if dimDist > maxDist then
+                nearest current n maxDist sub perm data (l + m + 1) r (d + 1) v
+
+            elif dimDist < -maxDist then
+                nearest current n maxDist sub perm data l (l + m) (d + 1) v
+
+            elif dimDist >= 0.0 then
+                let rv = nearest current n maxDist sub perm data (l + m + 1) r (d + 1) v
+                let lMax = if rv.Count >= n then rv.Max else maxDist
+                let lv = nearest rv n lMax sub perm data l (l + m) (d + 1) v
+                ClosestPoints.union lv rv
+
+            else
+                let lv = nearest current n maxDist sub perm data l (l + m) (d + 1) v
+                let rMax = if lv.Count >= n then lv.Max else maxDist
+                let rv = nearest lv n rMax sub perm data (l + m + 1) r (d + 1) v
+                ClosestPoints.union lv rv
+
+        else
+            current
+
+    let matches (l : ImageFeatures) (r : ImageFeatures) =
+        let rf = r.points |> Array.map (fun pt -> pt.Descriptor)
+        let perm = Array.init rf.Length id
+        pointKdTree perm rf 0 rf.Length 0
+
+        let sub (l : byte) (r : byte) =
+            (float l - float r) / 255.0
+
+        l.points |> Array.choosei (fun li lf ->
+            let closest = nearest ClosestPoints.empty 2 Double.PositiveInfinity sub perm rf 0 rf.Length 0 lf.Descriptor
+            let closest = 
+                closest.matches 
+                    |> MapExt.toSeq 
+                    |> Seq.collect (fun (d,s) -> s |> Seq.map (fun ri -> li, ri, d)) 
+                    |> Seq.atMost 2
+                    |> Seq.toList
+            match closest with
+                | [] -> None
+                | c -> Some c
+        )
+
+
 
 
 module OpenCV =
