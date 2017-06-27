@@ -291,15 +291,29 @@ module OpenCV =
         (m1, m2, t, ms)
 
     let recoverPoses2 (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =
+        let scale = 2.0
+        let offset = V2d(0.0,0.0)
+        let a = a |> Array.map ( fun v -> V2d(0.5 * v.X + offset.X, offset.Y - 0.5*v.Y) * scale )
+        let b = b |> Array.map ( fun v -> V2d(0.5 * v.X + offset.X, offset.Y - 0.5*v.Y) * scale )
+        
         let mutable m1 = M33d.Identity
         let mutable m2 = M33d.Identity
         let mutable t = V3d(100,123,432)
         let mutable cfg = cfg
+        cfg.FocalLength <- scale * cfg.FocalLength / 2.0
+        cfg.PrincipalPoint <- scale * offset
+        cfg.InlierThreshold <- scale * 0.5 * cfg.InlierThreshold
         let mutable ms = Array.create a.Length 0uy
         Native.cvRecoverPoses_(&&cfg, a.Length, a, b, &m1, &m2, &t, ms) |> ignore
 
         let m1 = m1.Transposed
         let m2 = m2.Transposed
+
+        let C = M33d.FromCols(V3d.IOO, -V3d.OIO, -V3d.OOI)
+        let m1 = C * m1 * C
+        let m2 = C * m2 * C
+
+        let t = C * t 
 
         let possiblePoses =
             if m1 = m2 then

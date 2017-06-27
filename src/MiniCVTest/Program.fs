@@ -259,10 +259,17 @@ module Sg =
 
         let projectionTrafo = Frustum.perspective 90.0 0.001 far 1.0 |> Frustum.projTrafo
 
-        let trafo = (c |> Camera.viewTrafo) * projectionTrafo
+        let view = c |> Camera.viewTrafo
+        let trafo = view * projectionTrafo
 
-        Sg.wireBox' (color cid) frust
-            |> Sg.transform trafo.Inverse
+        Sg.ofList [
+            IndexedGeometryPrimitives.coordinateCross (0.3 * V3d.III)
+                |> Sg.ofIndexedGeometry
+                |> Sg.transform view.Inverse
+                
+            Sg.wireBox' (color cid) frust
+                |> Sg.transform trafo.Inverse
+        ]
             
     let cameras (far : float) (cams : MapExt<CameraId,Camera>) =
         cams |> MapExt.toSeq |> Seq.map (fun (id,c) -> camera far id c) |> Sg.ofSeq
@@ -353,7 +360,7 @@ module Sg =
 
 let renderNetwork () =
     let points =
-        Array.init 1000 (fun _ ->
+        Array.init 50 (fun _ ->
             rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
         )
         
@@ -380,10 +387,10 @@ let renderNetwork () =
         }
 
     let rand = RandomSystem()
-    let jiggleRadius = 0.003
+    let jiggleRadius = 0.0 //03
 
-    let mismatchChance = 0.2 //0.4 //0.2 //1 //1
-    let observeChance = 0.4
+    let mismatchChance = 0.0 //2 //0.4 //0.2 //1 //1
+    let observeChance = 1.0
 
     let bounds =       Box2d(-V2d.II, V2d.II)
     let mutable mismatchCount = 0
@@ -446,6 +453,8 @@ let renderNetwork () =
 
                 let R = M33d.FromRows(solve 0, solve 1, solve 2) |> M44d.op_Explicit
 
+                Log.warn "det: %A" R.Det
+
                 let db = b1.location - b0.location |> Vec.length
                 let da = a1.location - a0.location |> Vec.length
 
@@ -462,7 +471,7 @@ let renderNetwork () =
         match nets with
             | net :: _ ->
                 trafo net original *
-                Trafo3d.Translation(0.0, 15.0, 0.0)
+                Trafo3d.Translation(0.0, 0.01, 0.0)
             | _ ->
                 Trafo3d.Identity
 
@@ -521,19 +530,19 @@ let main argv =
     Aardvark.Init()
     //Log.error "%A" System.Environment.CurrentDirectory
 
-    let i0 = PixImage.Create(@"C:\Users\Schorsch\Desktop\test\image0.jpg").ToPixImage<byte>(Col.Format.RGB)
-    let i1 = PixImage.Create(@"C:\Users\Schorsch\Desktop\test\image1.jpg").ToPixImage<byte>(Col.Format.RGB)
+    //let i0 = PixImage.Create(@"C:\Users\Schorsch\Desktop\test\image0.jpg").ToPixImage<byte>(Col.Format.RGB)
+    //let i1 = PixImage.Create(@"C:\Users\Schorsch\Desktop\test\image1.jpg").ToPixImage<byte>(Col.Format.RGB)
+    //
+    //let f0 = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze i0
+    //let f1 = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze i1
+    //
+    //Log.startTimed "matching %d with %d" f0.points.Length f1.points.Length
+    //let matches = ImageFeatures.matches f0 f1
+    //Log.stop()
+    //
+    //printfn "%A" matches
 
-    let f0 = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze i0
-    let f1 = OpenCV.detectFeatures OpenCV.DetectorMode.Akaze i1
-
-    Log.startTimed "matching %d with %d" f0.points.Length f1.points.Length
-    let matches = ImageFeatures.matches f0 f1
-    Log.stop()
-
-    printfn "%A" matches
-
-    //renderNetwork()
+    renderNetwork()
     //undistort()
 
     0

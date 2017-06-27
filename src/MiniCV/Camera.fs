@@ -61,7 +61,7 @@ module Camera =
         let toRotWorld = toWorld * t
         {
             location    = toRotWorld.TransformPos(V3d.Zero)
-            forward     = toRotWorld.TransformDir(-V3d.OOI) |> Vec.normalize
+            forward     = -toRotWorld.TransformDir(V3d.OOI) |> Vec.normalize
             up          = toRotWorld.TransformDir(V3d.OIO) |> Vec.normalize
             right       = toRotWorld.TransformDir(V3d.IOO) |> Vec.normalize
             focal       = c.focal
@@ -73,7 +73,7 @@ module Camera =
             V3d(
                 Vec.dot o c.right,
                 Vec.dot o c.up,
-                Vec.dot o -c.forward
+                Vec.dot o c.forward
             )
 
         let c = c.focal * pc.XY / pc.Z
@@ -84,9 +84,9 @@ module Camera =
         let direction =
             (pt.X / c.focal.X) * c.right +
             (pt.Y / c.focal.Y) * c.up +
-            -c.forward
+            c.forward
 
-        Ray3d(c.location, -Vec.normalize direction)
+        Ray3d(c.location, Vec.normalize direction)
 
     let lookAt (eye : V3d) (center : V3d) (sky : V3d) (f : V2d) =
         let fw = center - eye       |> Vec.normalize
