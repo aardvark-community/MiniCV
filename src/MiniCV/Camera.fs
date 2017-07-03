@@ -77,7 +77,7 @@ module Camera =
             )
 
         let c = c.focal * pc.XY / pc.Z
-        if c.AllGreaterOrEqual(-1.0) && c.AllSmallerOrEqual(1.0) then Some c
+        if pc.Z >= 0.0 && c.AllGreaterOrEqual(-1.0) && c.AllSmallerOrEqual(1.0) then Some c
         else None
 
     let unproject1 (c : Camera) (pt : V2d) =

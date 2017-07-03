@@ -360,12 +360,12 @@ module Sg =
 
 let renderNetwork () =
     let points =
-        Array.init 50 (fun _ ->
+        Array.init 1000 (fun _ ->
             rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
         )
         
     let cameras = 
-        List.init 5 ( fun i ->
+        List.init 6 ( fun i ->
             //if i = 0 then CameraId.New, Camera.lookAt (V3d(0,-5,0)) V3d.Zero V3d.OOI
             //else
                 CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (6.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) (rand.UniformV3dDirection()) V2d.II
@@ -376,7 +376,7 @@ let renderNetwork () =
     
     let original =
         {
-            config              = PhotoNetworkConfig.Default
+            config              = { PhotoNetworkConfig.Default with inlierThreshold = 0.00001 }
             count               = cameras.Length
             cost                = 0.0
             cameras             = MapExt.ofList cameras
@@ -387,10 +387,10 @@ let renderNetwork () =
         }
 
     let rand = RandomSystem()
-    let jiggleRadius = 0.0 //03
+    let jiggleRadius = 0.001 //03
 
-    let mismatchChance = 0.0 //2 //0.4 //0.2 //1 //1
-    let observeChance = 1.0
+    let mismatchChance = 0.2 //2 //0.4 //0.2 //1 //1
+    let observeChance = 0.4
 
     let bounds =       Box2d(-V2d.II, V2d.II)
     let mutable mismatchCount = 0
@@ -470,8 +470,7 @@ let renderNetwork () =
     let trafo = //Trafo3d.Translation(0.0,10.0,0.0)
         match nets with
             | net :: _ ->
-                trafo net original *
-                Trafo3d.Translation(0.0, 0.01, 0.0)
+                trafo net original 
             | _ ->
                 Trafo3d.Identity
 

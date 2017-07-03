@@ -74,8 +74,28 @@ module CameraPose =
                 count
                  
 
+            let avgReprojectionError (s : float) =
+                let finalPose = scale s pose
+                let dstCam = Camera.transformedView (transformation finalPose) srcCam
+                let mutable sum = 0.0
+                let mutable count = 0
+
+                for (w,obs) in worldObservations do
+                    match Camera.project1 dstCam w with
+                        | Some c ->
+                            let d = Vec.lengthSquared (c - obs)
+                            sum <- sum + d
+                            count <- count + 1
+                        | None ->
+                                ()
+                if count = 0 then Double.PositiveInfinity
+                else sum / float count
+                 
+                
+
             let mutable bestScale = 0.0
             let mutable bestCount = -1
+            let mutable bestCost = Double.PositiveInfinity
             let t = dst0Translation
             let mutable total = 0
             for (worldPoint, obs) in worldObservations do
@@ -88,20 +108,33 @@ module CameraPose =
                 total <- total + 1
 
                 match nt with
-                    | true -> ()
+                    | true -> 
+                        Log.line "bad"
+                        ()
                     | _ -> 
                         let s = -z / n
 
-                        let cx = countInliers s.X
-                        let cy = countInliers s.Y
+                        let cx = avgReprojectionError s.X
+                        let cy = avgReprojectionError s.Y
 
-                        if cx > bestCount then
-                            bestCount <- cx
+                        if cx < bestCost then
+                            bestCost <- cx
                             bestScale <- s.X
 
-                        if cy > bestCount then
-                            bestCount <- cy
+                        if cy < bestCost then
+                            bestCost <- cy
                             bestScale <- s.Y
+
+//                        let cx = countInliers s.X
+//                        let cy = countInliers s.Y
+//
+//                        if cx > bestCount then
+//                            bestCount <- cx
+//                            bestScale <- s.X
+//
+//                        if cy > bestCount then
+//                            bestCount <- cy
+//                            bestScale <- s.Y
 
                         //[s.X; s.Y]
 
@@ -114,7 +147,7 @@ module CameraPose =
 //            else
 
             let mutable cnt = 0
-            let cost = 1.0 / float (2 + bestCount)
+            let cost = bestCost //1.0 / float (2 + bestCount)
                 //worldObservations |> List.sumBy (fun (w,o) -> 
                 //    match Camera.project1 dstCam w with
                 //        | Some c ->
