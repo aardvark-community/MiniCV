@@ -47,9 +47,11 @@ module Camera =
 
     let transformed (t : Trafo3d) (c : Camera) =
         let fw = t.Forward
+        let forward = fw.TransformDir(c.forward)        |> Vec.normalize
+        assert(forward <> V3d.OOO)
         {
             location = fw.TransformPos(c.location)
-            forward = fw.TransformDir(c.forward)        |> Vec.normalize
+            forward = forward
             up = fw.TransformDir(c.up)                  |> Vec.normalize
             right = fw.TransformDir(c.right)            |> Vec.normalize
             focal = c.focal

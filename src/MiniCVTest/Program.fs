@@ -512,6 +512,73 @@ let renderNetwork () =
 
     win.Run()
 
+let photoPairTest () =
+    let points =
+        Array.init 1000 (fun _ ->
+            rand.UniformV3dDirection() * (rand.UniformDouble() * 2.0)
+        )
+        
+    let cameras = 
+        List.init 6 ( fun i ->
+             CameraId.New, Camera.lookAt (rand.UniformV3dDirection() * (6.0 + rand.UniformDouble() * 6.0)) (rand.UniformV3dDirection()) V3d.OOI V2d.II
+        )
+
+//    let points = [|
+//        V3d(-1.0,-1.0, 0.0)
+//        V3d(-1.0, 0.0, 0.0)
+//        V3d(-1.0, 1.0, 0.0)
+//        V3d( 0.0,-1.0, 0.0)
+//        V3d( 0.0, 0.0, 0.0)
+//        V3d( 0.0, 1.0, 0.0)
+//        V3d( 1.0,-1.0, 0.0)
+//        V3d( 1.0, 0.0, 0.0)
+//        V3d( 1.0, 1.0, 0.0)
+//    |]
+//
+//    let cameras = [|
+//        CameraId.New, Camera.lookAt (V3d(-10.0,-10.0,-10.0)) (V3d.OOO) V3d.OOI V2d.II
+//        CameraId.New, Camera.lookAt (V3d( 10.0,-10.0,-10.0)) (V3d.OOO) V3d.OOI V2d.II
+//        CameraId.New, Camera.lookAt (V3d( 10.0, 10.0,-10.0)) (V3d.OOO) V3d.OOI V2d.II
+//        CameraId.New, Camera.lookAt (V3d( 10.0, 10.0, 10.0)) (V3d.OOO) V3d.OOI V2d.II
+//    |]
+
+    let matches = 
+        [
+            for i in 0..(cameras.Length-1) do
+                for j in i ..(cameras.Length-1) do
+                    if i<>j then
+                        let (lcid,lc) = cameras.[i]
+                        let (rcid,rc) = cameras.[j]
+
+                        let ms = [
+                            for p in points do 
+                                let l = (Camera.project1 lc p |> Option.get)
+                                let r = (Camera.project1 rc p |> Option.get)
+
+                                let getRand () =
+                                    rand.UniformDouble() * 1.5
+
+                                let l = V2d(l.X + getRand(), l.Y + getRand())
+                                let r = V2d(r.X + getRand(), r.Y + getRand())
+                                if l.AnyGreater 1.0 || l.AnySmaller -1.0 || r.AnyGreater 1.0 || r.AnySmaller -1.0 then
+                                    ()
+                                else
+                                    yield l,r
+                            ]
+
+                        yield (lcid,rcid),ms
+
+        ] |> MapExt.ofList
+
+    let maxNdc = 0.1
+    let filtered = Aardvark.Reconstruction.PhotoPair.filterMasks matches V2d.II V2d.OO maxNdc id
+
+    for KeyValue((lcid,rcid),ms) in filtered do
+        Log.line "Pair %A-%A: Filtered #%d -> #%d matches" lcid rcid matches.[(lcid,rcid)].Length ms.Length
+
+
+    Log.line "Filtered done"
+
 let renderGraphical() =
     
     ()
@@ -525,8 +592,8 @@ let undistort() =
 
 [<EntryPoint>]
 let main argv = 
-    Ag.initialize()
-    Aardvark.Init()
+    //Ag.initialize()
+    //Aardvark.Init()
     //Log.error "%A" System.Environment.CurrentDirectory
 
     //let i0 = PixImage.Create(@"C:\Users\Schorsch\Desktop\test\image0.jpg").ToPixImage<byte>(Col.Format.RGB)
@@ -541,7 +608,9 @@ let main argv =
     //
     //printfn "%A" matches
 
-    renderNetwork()
+    //renderNetwork()
     //undistort()
+
+    photoPairTest()
 
     0

@@ -167,7 +167,6 @@ module PhotoNetwork =
                         ]
                     )
                     
-
                 let configurations = 
                     poses |> List.choose (fun p ->
                         let cam1 = 

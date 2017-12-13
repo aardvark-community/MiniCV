@@ -29,7 +29,6 @@ type PhotoNetworkEdge =
 
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module PhotoNetworkEdge =
-
     let empty (lid : CameraId) (rid : CameraId) =
         {
             left                = lid
