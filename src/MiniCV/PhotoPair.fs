@@ -6,24 +6,21 @@ open Aardvark.Reconstruction
 
 module PhotoPair =
 
-    let filterMasks
-        (pairs : MapExt<CameraId*CameraId, list<'a*'a>>) 
+    let filterMask
+        (ms : list<'a*'a>) 
         (f : V2d) 
         (pp : V2d) 
         (maxNdcAbweichung : float) 
-        (getNdc : 'a -> V2d) : MapExt<CameraId*CameraId, list<'a*'a>> = 
+        (getNdc : 'a -> V2d) : list<'a*'a> = 
 
         let ff = f.X/f.Y
-
-        //todo f stuff here
 
         let recoverPoseConfig = 
             RecoverPoseConfig(f.X, pp, 0.999, 0.005)
 
-        pairs |> MapExt.map (fun (lcid,rcid) ms ->
-            match ms with
+        match ms with
             | [] | [_] -> []
-            | v when v.Length < 10 -> []
+            | v when v.Length < 6 -> []
             | _ ->
                 let l = ms |> List.map fst |> List.toArray
                 let r = ms |> List.map snd |> List.toArray
@@ -112,10 +109,26 @@ module PhotoPair =
                         Some maxItem
 
                 match pose with
-                | None -> Log.warn "[PoseFilter] No pose, matches too broken. Camera %A-%A" lcid rcid; []
+                | None -> []
                 | Some pose -> 
                     pose
 
+
+    let filterMasks
+        (pairs : MapExt<CameraId*CameraId, list<'a*'a>>) 
+        (f : V2d) 
+        (pp : V2d) 
+        (maxNdcAbweichung : float) 
+        (getNdc : 'a -> V2d) : MapExt<CameraId*CameraId, list<'a*'a>> = 
+
+        pairs |> MapExt.map (fun (lcid,rcid) ms ->
+            let pose = filterMask ms f pp maxNdcAbweichung getNdc
+            
+            match pose with
+            | [] -> Log.line "[PoseFilter] Zero matches. %A-%A" lcid rcid;
+            | _ -> ()
+
+            pose
         )
 
 
