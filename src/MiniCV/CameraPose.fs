@@ -124,94 +124,14 @@ module CameraPose =
                         if cy < bestCost then
                             bestCost <- cy
                             bestScale <- s.Y
-
-//                        let cx = countInliers s.X
-//                        let cy = countInliers s.Y
-//
-//                        if cx > bestCount then
-//                            bestCount <- cx
-//                            bestScale <- s.X
-//
-//                        if cy > bestCount then
-//                            bestCount <- cy
-//                            bestScale <- s.Y
-
-                        //[s.X; s.Y]
-
             
             let finalPose = scale bestScale pose
             let dstCam = Camera.transformedView (transformation finalPose) srcCam
-//
-//            if bestCount < 10 || float bestCount / float total < 0.2 then
-//                Double.PositiveInfinity, finalPose
-//            else
 
             let mutable cnt = 0
-            let cost = bestCost //1.0 / float (2 + bestCount)
-                //worldObservations |> List.sumBy (fun (w,o) -> 
-                //    match Camera.project1 dstCam w with
-                //        | Some c ->
-                //                cnt <- cnt + 1
-                //                c - o |> Vec.lengthSquared
-                //        | None ->
-                //                0.0
-                //)
-
-            //let avgCost = sqrt (cost / float cnt)
+            let cost = bestCost 
 
             cost, finalPose
-
-
-            //let scales =
-            //    let t = dst0Translation
-            //    worldObservations |> List.collect (fun (worldPoint, obs) ->
-            //        let point = dst0View.Forward.TransformPos(worldPoint)
-            //        // project(point + s * t) = obs
-                
-            //        // (point.xy + s * t.xy) / (point.z + s * t.z) = obs
-            //        // point.xy + s * t.xy  = obs * (point.z + s * t.z)
-            //        // point.xy + s * t.xy  = obs * point.z + s * obs * t.z
-            //        // s * t.xy - s * obs * t.z  = obs * point.z - point.xy
-            //        // s * (t.xy - obs * t.z) = obs * point.z - point.xy
-            //        // s = (obs * point.z - point.xy) / (t.xy - obs * t.z)
-            //        let z = (obs * point.Z - point.XY) 
-            //        let n = t.XY - obs * t.Z
-
-            //        let nt = Fun.IsTiny(n.X, 1E-5) || Fun.IsTiny(n.Y, 1E-5)
-
-            //        match nt with
-            //            | true -> []
-            //            | _ -> 
-            //                let s = -z / n
-
-            //                [s.X; s.Y]
-
-
-            //    )
-            
-            //match scales with
-            //| [] -> Double.PositiveInfinity, CameraPose()
-            //| _ ->
-            //    let scaleRange = Range1d scales
-            //    let s = List.average scales
-
-            //    let finalPose = scale s pose
-            //    let dstCam = Camera.transformedView (transformation finalPose) srcCam
-
-            //    let mutable cnt = 0
-            //    let cost = 
-            //        worldObservations |> List.sumBy (fun (w,o) -> 
-            //            match Camera.project1 dstCam w with
-            //                | Some c ->
-            //                        cnt <- cnt + 1
-            //                        c - o |> Vec.lengthSquared
-            //                | None ->
-            //                        0.0
-            //        )
-
-            //    let avgCost = sqrt (cost / float cnt)
-
-            //    avgCost, finalPose
 
     let inverse (pose : CameraPose) =
         // qi = R * (pi + t)
