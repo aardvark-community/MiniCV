@@ -1,8 +1,8 @@
-﻿namespace Aardvark.Reconstruction
+﻿namespace MiniCV
 
 open System
 open Aardvark.Base
-open Aardvark.Reconstruction
+open MiniCV
 
 type CameraPose =
     struct

@@ -1,4 +1,4 @@
-﻿namespace Aardvark.Reconstruction
+﻿namespace MiniCV
 
 open System
 open Aardvark.Base

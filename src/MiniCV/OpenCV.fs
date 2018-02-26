@@ -1,4 +1,4 @@
-﻿namespace Aardvark.Reconstruction
+﻿namespace MiniCV
 
 open System
 open Aardvark.Base
@@ -6,7 +6,7 @@ open Aardvark.Base
 open System.Collections.Generic
 open System.Runtime.InteropServices
 open System.Security
-open Aardvark.Reconstruction
+open MiniCV
 open Microsoft.FSharp.NativeInterop
 
 #nowarn "9"
