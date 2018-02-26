@@ -230,7 +230,7 @@ module OpenCV =
         extern void cvFreeFeatures_(DetectorResult* res)
 
         [<DllImport(lib, EntryPoint = "cvDoStuff"); SuppressUnmanagedCodeSecurity>]
-        extern void cvDoStuff_( nativeint[] imgs, int ct, nativeint[] repr, int rct, nativeint[] oFilenames)
+        extern void cvDoStuff_()
 
     let private copy (src : nativeptr<'a>) (dst : 'a[]) (cnt : int) =
         let gc = GCHandle.Alloc(dst, GCHandleType.Pinned)
@@ -333,36 +333,6 @@ module OpenCV =
     open System.IO
     open System.Text
 
-    let undistortImages (chessboardDir : string) (photoDir : string) =
-
-        let chess = Directory.GetFiles(chessboardDir) 
-                        |> Array.map ( fun f -> f.ToLower() ) 
-                        |> Array.filter ( fun fn -> Path.GetExtension fn = ".jpg" )
-        
-        let photo = Directory.GetFiles(photoDir) 
-                        |> Array.map ( fun f -> f.ToLower() ) 
-                        |> Array.filter ( fun fn -> Path.GetExtension fn = ".jpg" )
-
-        let od =
-            let p = Path.combine [photoDir; "undistorted"]
-            if p |> Directory.Exists |> not then Directory.CreateDirectory p |> ignore
-            p
-
-        let oFiles = 
-            photo |> Array.map ( fun f -> Path.combine [od; (Path.GetFileName f)])
-
-//        for c in chess do
-//            printfn "%s" c
-//
-//        for p in photo do
-//            printfn "%s" p
-//
-//        for p in oFiles do
-//            printfn "%s" p
-
-        Native.cvDoStuff_(chess |> Array.map Marshal.StringToHGlobalUni, 
-                          chess.Length, 
-                          photo |> Array.map Marshal.StringToHGlobalUni, 
-                          photo.Length, 
-                          oFiles |> Array.map Marshal.StringToHGlobalUni)
+    let undistortImages () =
+        Native.cvDoStuff_()
             

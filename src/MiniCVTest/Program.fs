@@ -585,9 +585,7 @@ let renderGraphical() =
 
 let undistort() =
     
-    OpenCV.undistortImages 
-        @"D:\bla2\calib\small"
-        @"D:\bla2\buch\small\1"
+    OpenCV.undistortImages ()
 
 
 [<EntryPoint>]
@@ -609,8 +607,8 @@ let main argv =
     //printfn "%A" matches
 
     //renderNetwork()
-    //undistort()
+    undistort()
 
-    photoPairTest()
+    //photoPairTest()
 
     0
