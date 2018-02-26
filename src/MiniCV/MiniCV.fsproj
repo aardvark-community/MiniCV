@@ -54,9 +54,6 @@
     <Compile Include="Camera.fs" />
     <Compile Include="CameraPose.fs" />
     <Compile Include="OpenCV.fs" />
-    <Compile Include="PhotoPair.fs" />
-    <Compile Include="PhotoNetworkEdge.fs" />
-    <Compile Include="PhotoNetwork.fs" />
   </ItemGroup>
   <PropertyGroup>
     <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
