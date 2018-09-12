@@ -349,3 +349,49 @@ DllExport(void) cvFreeFeatures(DetectorResult* res)
 
 	delete res;
 }
+
+DllExport(void) cvTest()
+{
+	double arr1[] = { 1.02736340896169,0.0824668492092278,0.399551267404442,-0.0921929548453944,1.03823834690651,0.12968385038247,-0.159700861517284,-0.0688464520524622,1 };
+	// 1.02736340896169,0.0824668492092278,0.399551267404442,-0.0921929548453944,1.03823834690651,0.12968385038247,-0.159700861517284,-0.0688464520524622,1
+
+	double arr[] = { arr1[0], arr1[3], arr1[6], arr1[1], arr1[4], arr1[7], arr1[2], arr1[5], arr1[8] };
+
+	cv::Mat H(3, 3, CV_64FC1, (void*)arr);
+	auto K = cv::Mat::eye(3, 3, CV_64FC1);
+
+	std::vector< cv::Mat > rot;
+	std::vector< cv::Mat > trans;
+	std::vector< cv::Mat > norm;
+
+	cv::Mat U(3, 3, CV_64FC1);
+	cv::Mat S(3, 3, CV_64FC1);
+	cv::Mat Vt(3, 3, CV_64FC1);
+	cv::SVDecomp(H, S, U, Vt);
+	cout << "S" << endl;
+	cout << S << endl;
+	cout << "U" << endl;
+	cout << U << endl;
+	cout << "Vt" << endl;
+	cout << Vt << endl;
+
+	cv::decomposeHomographyMat(H, K, rot, trans, norm);
+
+
+	for (int i = 0; i < rot.size(); i++)
+	{
+		printf("%d: \n", i);
+		auto R = rot[i];
+		for (int r = 0; r < 3; r++)
+		{
+			for (int c = 0; c < 3; c++)
+			{
+				printf("%.8f ", R.at<double>(c, r));
+			}
+			printf("\n");
+		}
+	}
+
+
+
+}

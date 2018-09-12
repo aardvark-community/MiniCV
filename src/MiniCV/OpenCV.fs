@@ -233,6 +233,12 @@ module OpenCV =
         [<DllImport(lib, EntryPoint = "cvDoStuff"); SuppressUnmanagedCodeSecurity>]
         extern void cvDoStuff_()
 
+        [<DllImport(lib, EntryPoint = "cvTest"); SuppressUnmanagedCodeSecurity>]
+        extern void cvTest()
+        
+
+
+
     let private copy (src : nativeptr<'a>) (dst : 'a[]) (cnt : int) =
         let gc = GCHandle.Alloc(dst, GCHandleType.Pinned)
         try
