@@ -3,6 +3,3 @@ id MiniCV
 authors VRVis Research Center
 description
     MiniCV
-files
-    ..\..\bin\Release\MiniCV.dll ==> lib\net45
-    ..\..\bin\Release\MiniCV.pdb ==> lib\net45
