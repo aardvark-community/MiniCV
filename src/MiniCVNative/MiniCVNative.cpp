@@ -363,7 +363,8 @@ DllExport(int) cvFivePoint(const Point2d* pa, const Point2d* pb, Matx33d* Es)
 	for (int i = 0; i < cnt; i++) 
 	{
 		auto e = res.rowRange(3 * i, 3 * i + 3);
-		e.copyTo(Es[i]);
+		Matx33d m33((double*)e.ptr());
+		Es[i] = m33;
 	}
 	return cnt;
 }

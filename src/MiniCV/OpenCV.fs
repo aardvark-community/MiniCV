@@ -235,10 +235,10 @@ module OpenCV =
 
         [<DllImport(lib, EntryPoint = "cvTest"); SuppressUnmanagedCodeSecurity>]
         extern void cvTest()
+
+        [<DllImport(lib, EntryPoint = "cvFivePoint"); SuppressUnmanagedCodeSecurity>]
+        extern int cvFivePoint(V2d[] pa, V2d[] pb, M33d* Es)
         
-
-
-
     let private copy (src : nativeptr<'a>) (dst : 'a[]) (cnt : int) =
         let gc = GCHandle.Alloc(dst, GCHandleType.Pinned)
         try
@@ -335,6 +335,17 @@ module OpenCV =
             Array.map ((<>) 0uy) ms
 
         possiblePoses, mask
+
+
+    let fivepoint (a : V2d[]) (b : V2d[]) : M33d[] =
+        let res = Array.zeroCreate 10
+        use ptr = fixed res
+        let cnt = Native.cvFivePoint(a,b,ptr)
+        
+        if cnt > 0 then
+            Array.take cnt res
+        else
+            [||]
 
     open System
     open System.IO

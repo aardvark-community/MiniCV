@@ -19,3 +19,6 @@ bin/Debug
 /lib/Native/MiniCV/windows/AMD64/MiniCVNative.pdb
 /src/*.opendb
 /src/*.db
+.idea/
+*.user
+.paket/
