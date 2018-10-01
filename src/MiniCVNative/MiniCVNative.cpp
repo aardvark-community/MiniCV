@@ -44,6 +44,7 @@ typedef struct {
 
 } RecoverPoseConfig;
 
+
 DllExport(bool) cvRecoverPoses(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat1, Matx33d& rMat2, Vec3d& tVec, uint8_t* ms) {
 	
 	if (N < 5) return false;
@@ -72,6 +73,7 @@ DllExport(bool) cvRecoverPoses(const RecoverPoseConfig* config, const int N, con
 	{
 		return false;
 	}
+
 }
 
 
@@ -348,6 +350,22 @@ DllExport(void) cvFreeFeatures(DetectorResult* res)
 	}
 
 	delete res;
+}
+
+
+DllExport(int) cvFivePoint(const Point2d* pa, const Point2d* pb, Matx33d* Es)
+{
+	Mat aa(5, 1, CV_64FC2, (void*)pa);
+	Mat ba(5, 1, CV_64FC2, (void*)pb);
+	Mat res;
+	int cnt = runFivepoint(aa, ba, res);
+
+	for (int i = 0; i < cnt; i++) 
+	{
+		auto e = res.rowRange(3 * i, 3 * i + 3);
+		e.copyTo(Es[i]);
+	}
+	return cnt;
 }
 
 DllExport(void) cvTest()
