@@ -50,18 +50,12 @@ module fufuf =
 
         match OpenCV.solvePnP SolverKind.Iterative image world intern (Array.replicate 4 0.0) with
         | None -> Log.line "fail"
-        | Some (t,r) ->
-            let r = -r
-            let ang = r.Length
-            let axs = r.Normalized
-            let rot = Rot3d(axs,ang)
-            let trn = rot.TransformPos -t
-            let e = Euclidean3d(rot,trn)
+        | Some e ->
             
             let loc = e.TransformPos V3d.OOO
             let fw = e.TransformDir -V3d.OOI
 
-            Log.line "%A, %A" t r 
+            Log.line "%A, %A" fw loc
 
 
         0 // return an integer exit code
