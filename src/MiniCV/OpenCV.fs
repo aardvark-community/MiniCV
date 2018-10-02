@@ -371,12 +371,11 @@ module OpenCV =
             let mutable rRes = Unchecked.defaultof<_>
             
             if Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes) then
-                let r = -rRes
-                let t = -tRes
+                let r = rRes
+                let trn = tRes
                 let ang = r.Length
                 let axs = r.Normalized
-                let rot = Rot3d(axs,ang)
-                let trn = rot.TransformPos t
+                let rot = Rot3d.FromAngleAxis(V3d.OOI * Constant.Pi) * Rot3d(axs,ang)
                 let e = Euclidean3d(rot,trn)
                 
                 Some e

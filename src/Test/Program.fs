@@ -35,7 +35,7 @@ module fufuf =
                 1.356
             |]
 
-        let cam = { view = CameraView.lookAt V3d.III V3d.OOO V3d.OOI; proj = {aspect = 4.0/3.0; focalLength = 1.5423; principalPoint = (V2d(-0.0042,0.0011))} }
+        let cam = { view = CameraView.lookAt (V3d(-4.0,-3.0,2.0)) V3d.OOO V3d.OOI; proj = {aspect = 4.0/3.0; focalLength = 1.5423; principalPoint = (V2d(-0.0042,0.0011))} }
 
         let (image,world) = 
             a |> Array.mapi ( fun i v ->
@@ -52,10 +52,19 @@ module fufuf =
         | None -> Log.line "fail"
         | Some e ->
             
-            let loc = e.TransformPos V3d.OOO
-            let fw = e.TransformDir -V3d.OOI
+            let cv = 
+                { 
+                    trafo = e
+                }
 
-            Log.line "%A, %A" fw loc
+            let loc = cv.Location
+            let fw = cv.Forward
+            let up = cv.Up
+            let ri = cv.Right
+
+            let good = CameraView.approxEqual 1E-6 cv cam.view
+
+            Log.line "%A, %A %A" fw loc good
 
 
         0 // return an integer exit code
