@@ -371,7 +371,7 @@ module OpenCV =
             let mutable rRes = Unchecked.defaultof<_>
             
             if Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes) then
-                let r = -tRes
+                let r = -rRes
                 let t = -tRes
                 let ang = r.Length
                 let axs = r.Normalized

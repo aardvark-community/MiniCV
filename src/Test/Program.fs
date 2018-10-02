@@ -35,7 +35,7 @@ module fufuf =
                 1.356
             |]
 
-        let cam = { view = CameraView.lookAt V3d.IOO V3d.OOO V3d.OOI; proj = {aspect = 4.0/3.0; focalLength = 1.5423; principalPoint = (V2d(-0.0042,0.0011))} }
+        let cam = { view = CameraView.lookAt V3d.III V3d.OOO V3d.OOI; proj = {aspect = 4.0/3.0; focalLength = 1.5423; principalPoint = (V2d(-0.0042,0.0011))} }
 
         let (image,world) = 
             a |> Array.mapi ( fun i v ->
