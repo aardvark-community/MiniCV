@@ -216,7 +216,7 @@ module OpenCV =
     module Native =
 
         [<Literal>]
-        let lib = @"MiniCVNative"
+        let lib = @"D:\proj_2\minicv-besser\bin\Debug\MiniCVNative.dll"
         
         [<DllImport(lib, EntryPoint = "cvRecoverPose"); SuppressUnmanagedCodeSecurity>]
         extern int cvRecoverPose_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat, V3d& tVec, byte[] ms)
@@ -238,6 +238,9 @@ module OpenCV =
 
         [<DllImport(lib, EntryPoint = "cvFivePoint"); SuppressUnmanagedCodeSecurity>]
         extern int cvFivePoint(V2d[] pa, V2d[] pb, M33d* Es)
+
+        [<DllImport(lib, EntryPoint = "cvSolvePnP"); SuppressUnmanagedCodeSecurity>]
+        extern bool cvSolvePnP(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, int solverKind, V3d& t, V3d& r)
         
     let private copy (src : nativeptr<'a>) (dst : 'a[]) (cnt : int) =
         let gc = GCHandle.Alloc(dst, GCHandleType.Pinned)
@@ -346,6 +349,39 @@ module OpenCV =
             Array.take cnt res
         else
             [||]
+
+    type SolverKind =
+    | EPNP
+    | P3P
+    | AP3P
+    | Iterative
+    
+    let solvePnP (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+        if imgPoints.Length <> worldPoints.Length then
+            None
+        else
+            let kind =
+                match solver with
+                | Iterative -> 0
+                | EPNP -> 1
+                | P3P -> 2
+                | AP3P -> 5
+        
+            let mutable tRes = Unchecked.defaultof<_>
+            let mutable rRes = Unchecked.defaultof<_>
+            
+            if Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes) then
+                let r = -tRes
+                let t = -tRes
+                let ang = r.Length
+                let axs = r.Normalized
+                let rot = Rot3d(axs,ang)
+                let trn = rot.TransformPos t
+                let e = Euclidean3d(rot,trn)
+                
+                Some e
+            else
+                None
 
     open System
     open System.IO

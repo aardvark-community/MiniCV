@@ -6,7 +6,7 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MiniCV", "MiniCV\MiniCV.fsp
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MiniCVNative", "MiniCVNative\MiniCVNative.vcxproj", "{7F036AC8-60B4-43FF-B592-82BFA560A200}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Test", "Test\Test.fsproj", "{EED504F6-30CB-407E-8B85-054D9C508DD6}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Test", "Test\Test.fsproj", "{EED504F6-30CB-407E-8B85-054D9C508DD6}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

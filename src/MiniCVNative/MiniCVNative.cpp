@@ -44,6 +44,30 @@ typedef struct {
 
 } RecoverPoseConfig;
 
+DllExport(bool) cvSolvePnP(const Point2d* imgPoints, const Point3d* worldPoints, const int N, const Matx33d K, const double* distortionCoeffs, const int solverKind, Vec3d& tVec, Vec3d& rVec) {
+	vector<Point2d> image(imgPoints, imgPoints + N);
+	vector<Point3d> world(worldPoints, worldPoints + N);
+	//vector<double> distortion(distortionCoeffs, distortionCoeffs + 6);
+
+	Mat intern(K);
+
+	Mat distortion(1, 4, CV_64F, (void*)distortionCoeffs);
+
+	Vec3d tOut;
+	Vec3d rOut;
+
+	bool suc = cv::solvePnP(world, image, intern, distortion, rOut, tOut, false, solverKind);
+	if (suc) {
+		tVec = tOut;
+		rVec = rOut;
+		return true;
+	}
+	else {
+		return false;
+	}
+
+}
+
 
 DllExport(bool) cvRecoverPoses(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat1, Matx33d& rMat2, Vec3d& tVec, uint8_t* ms) {
 	
@@ -348,6 +372,8 @@ DllExport(void) cvFreeFeatures(DetectorResult* res)
 		delete res->Points;
 		res->Points = nullptr;
 	}
+
+	
 
 	delete res;
 }

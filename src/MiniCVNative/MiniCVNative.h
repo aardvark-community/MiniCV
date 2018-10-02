@@ -7,6 +7,7 @@
 #include <opencv2\opencv.hpp>
 #include <opencv2\calib3d.hpp>
 #include "fivepoint.h"
+#include "opencv2/calib3d/calib3d.hpp"
 
 typedef struct KeyPoint2d_ {
 	cv::Point2f pt;
