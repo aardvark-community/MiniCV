@@ -372,10 +372,12 @@ module OpenCV =
             
             if Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes) then
                 let r = rRes
-                let trn = tRes
+                let t = tRes
                 let ang = r.Length
                 let axs = r.Normalized
-                let rot = Rot3d.FromAngleAxis(V3d.OOI * Constant.Pi) * Rot3d(axs,ang)
+                let rotOrig = Rot3d(axs,ang)
+                let rot = Rot3d.FromAngleAxis(V3d.OOI * Constant.Pi) * rotOrig
+                let trn = rot.TransformDir(rotOrig.InvTransformDir(t))
                 let e = Euclidean3d(rot,trn)
                 
                 Some e

@@ -35,12 +35,16 @@ module fufuf =
                 1.356
             |]
 
-        let cam = { view = CameraView.lookAt (V3d(-4.0,-3.0,2.0)) V3d.OOO V3d.OOI; proj = {aspect = 4.0/3.0; focalLength = 1.5423; principalPoint = (V2d(-0.0042,0.0011))} }
+        let cam = 
+            { 
+                view = CameraView.lookAt (V3d(22.0,-42.3,-41.5)) (V3d(2.0, 1.0, 3.0)) (V3d(2.3,-2.1,-1.1).Normalized)
+                proj = {aspect = 2.123; focalLength = 3.125125; principalPoint =(V2d(-0.42,0.11))} 
+            }
 
         let (image,world) = 
             a |> Array.mapi ( fun i v ->
                 v, (
-                    let ray = Camera.unproject v cam
+                    let ray = Camera.unproject (v) cam
                     ray.GetPointOnRay d.[i]
                 )
             )   |> Array.take 6
@@ -62,8 +66,8 @@ module fufuf =
             let up = cv.Up
             let ri = cv.Right
 
-            let good = CameraView.approxEqual 1E-6 cv cam.view
-
+            let good = CameraView.approxEqual 1E-4 cv cam.view
+             
             Log.line "%A, %A %A" fw loc good
 
 
