@@ -23,6 +23,8 @@ module fufuf =
                 V2d(-0.33,-0.256)
                 V2d(0.19,0.251)
                 V2d(0.74,-0.24)
+                V2d(-0.124,0.234674)
+                V2d(-0.364,-0.3474)
             |]
 
         let d = 
@@ -33,11 +35,13 @@ module fufuf =
                 1.346
                 1.7522
                 1.356
+                1.5
+                1.5467
             |]
 
         let cam = 
             { 
-                view = CameraView.lookAt (V3d(22.0,-42.3,-41.5)) (V3d(2.0, 1.0, 3.0)) (V3d(2.3,-2.1,-1.1).Normalized)
+                view = CameraView.lookAt (V3d(22.0,-42.3,-41.5)) (V3d(200.0, 100.0, 300.0)) (V3d(2.3,-2.1,-1.1).Normalized)
                 proj = {aspect = 2.123; focalLength = 3.125125; principalPoint =(V2d(-0.42,0.11))} 
             }
 
@@ -47,7 +51,7 @@ module fufuf =
                     let ray = Camera.unproject (v) cam
                     ray.GetPointOnRay d.[i]
                 )
-            )   |> Array.take 6
+            )   |> Array.take 8
                 |> Array.unzip
 
         let intern = (Projection.toTrafo cam.proj).Forward

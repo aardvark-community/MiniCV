@@ -48,6 +48,26 @@ DllExport(bool) cvSolvePnP(const Point2d* imgPoints, const Point3d* worldPoints,
 	vector<Point2d> image(imgPoints, imgPoints + N);
 	vector<Point3d> world(worldPoints, worldPoints + N);
 	//vector<double> distortion(distortionCoeffs, distortionCoeffs + 6);
+	
+	int kind = 0;
+	if (solverKind == 0) {
+		kind = cv::SOLVEPNP_ITERATIVE;
+	}
+	else if (solverKind == 1) {
+		kind = cv::SOLVEPNP_EPNP;
+	}
+	else if (solverKind == 2) {
+		kind = cv::SOLVEPNP_P3P;
+	}
+	else if (solverKind == 3) {
+		kind = cv::SOLVEPNP_DLS;
+	}
+	else if (solverKind == 4) {
+		kind = cv::SOLVEPNP_UPNP;
+	}
+	else if (solverKind == 5) {
+		kind = cv::SOLVEPNP_AP3P;
+	}
 
 	Mat intern(K);
 
@@ -56,7 +76,7 @@ DllExport(bool) cvSolvePnP(const Point2d* imgPoints, const Point3d* worldPoints,
 	Vec3d tOut;
 	Vec3d rOut;
 
-	bool suc = cv::solvePnP(world, image, intern, distortion, rOut, tOut, false, solverKind);
+	bool suc = cv::solvePnP(world, image, intern, distortion, rOut, tOut, true, kind);
 	if (suc) {
 		tVec = tOut;
 		rVec = rOut;

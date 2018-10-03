@@ -216,7 +216,7 @@ module OpenCV =
     module Native =
 
         [<Literal>]
-        let lib = @"D:\proj_2\minicv-besser\bin\Debug\MiniCVNative.dll"
+        let lib = @"MiniCVNative.dll"
         
         [<DllImport(lib, EntryPoint = "cvRecoverPose"); SuppressUnmanagedCodeSecurity>]
         extern int cvRecoverPose_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat, V3d& tVec, byte[] ms)
@@ -376,8 +376,22 @@ module OpenCV =
                 let ang = r.Length
                 let axs = r.Normalized
                 let rotOrig = Rot3d(axs,ang)
-                let rot = Rot3d.FromAngleAxis(V3d.OOI * Constant.Pi) * rotOrig
-                let trn = rot.TransformDir(rotOrig.InvTransformDir(t))
+                
+                let rot, trn =
+                    match solver with
+                    | Iterative ->
+                        let rot = Rot3d.FromAngleAxis(V3d.OOI * Constant.Pi) * rotOrig
+                        let trn = rot.TransformDir(rotOrig.InvTransformDir(t))
+                        rot,trn
+                    | EPNP ->
+                        let rot = rotOrig
+                        let trn = t
+                        rot,trn
+                    | _ ->
+                        let rot = rotOrig
+                        let trn = t
+                        rot,trn
+                        
                 let e = Euclidean3d(rot,trn)
                 
                 Some e

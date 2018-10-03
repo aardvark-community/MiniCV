@@ -1,6 +1,5 @@
 framework: netcoreapp2.0, netstandard2.0, net471
 source https://api.nuget.org/v3/index.json
-source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
 
 nuget FSharp.Core                          ~> 4.3.0
 
@@ -10,7 +9,6 @@ nuget Aardvark.Base.FSharp                 >= 4.2.0
 group Build
 framework: net45
 content: none
-source https://vrvis.myget.org/F/aardvark_public/api/v3/index.json
 source https://api.nuget.org/v3/index.json
 
 github vrvis/Aardvark.Fake:v4-temp

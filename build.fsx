@@ -20,7 +20,7 @@ Target "Test" (fun () ->
 )
 
 Target "CopyOpenCVDebug" (fun () ->
-    CopyFile "bin/Debug" "lib/opencv_world320d.dll"
+    CopyFile "bin/Debug" "lib/opencv_world343d.dll"
 )
 
 "CopyOpenCVDebug" ==> "AddNativeResources"
