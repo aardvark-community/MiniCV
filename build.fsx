@@ -19,14 +19,6 @@ Target "Test" (fun () ->
                                                   ToolName = "nunit-console.exe" }) [@"bin\Release\Aardvark.Base.Incremental.Tests.exe"]
 )
 
-Target "CopyOpenCVDebug" (fun () ->
-    CopyFile "bin/Debug" "lib/opencv_world343d.dll"
-)
-
-"CopyOpenCVDebug" ==> "AddNativeResources"
-
-
-
 Target "Statistics" (fun () ->
     let fsFiles = !!"src/**/*.fs"  
 
