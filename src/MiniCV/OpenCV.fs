@@ -242,6 +242,57 @@ module OpenCV =
         [<DllImport(lib, EntryPoint = "cvSolvePnP"); SuppressUnmanagedCodeSecurity>]
         extern bool cvSolvePnP(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, int solverKind, V3d& t, V3d& r)
         
+        [<DllImport(lib, EntryPoint = "solveAp3p"); SuppressUnmanagedCodeSecurity>]
+        extern int solveAp3p(M33d* Rs, V3d* ts, float mu0, float mv0, float X0, float Y0, float Z0, float mu1, float mv1, float X1, float Y1, float Z1, float mu2, float mv2, float X2, float Y2, float Z2, float inv_fx, float inv_fy, float cx_fx, float cy_fy)
+        
+    let solveAp3p (img : V2d[]) (world : V3d[]) (intern : M33d) =
+        assert(img.Length = world.Length)
+        
+        let Rs : M33d[] = Array.zeroCreate 4
+        let ts : V3d[]  = Array.zeroCreate 4
+        
+        let mu0 = img.[0].X
+        let mu1 = img.[1].X
+        let mu2 = img.[2].X
+
+        let mv0 = img.[0].Y
+        let mv1 = img.[1].Y
+        let mv2 = img.[2].Y
+
+        let X0 = world.[0].X
+        let X1 = world.[1].X
+        let X2 = world.[2].X
+
+        let Y0 = world.[0].Y
+        let Y1 = world.[1].Y
+        let Y2 = world.[2].Y
+        
+        let Z0 = world.[0].Z
+        let Z1 = world.[1].Z
+        let Z2 = world.[2].Z
+
+        let inv_fx = 1.0 / intern.M00
+        let inv_fy = 1.0 / intern.M11
+
+        let cx_fx = intern.M20 / intern.M00
+        let cy_fy = intern.M21 / intern.M11
+
+        use PRs = fixed Rs
+        use Pts = fixed ts
+
+
+        let cnt = Native.solveAp3p(PRs, Pts, mu0, mv0, X0, Y0, Z0, mu1, mv1, X1, Y1, Z1, mu2, mv2, X2, Y2, Z2, inv_fx, inv_fy, cx_fx, cy_fy)
+
+        let res = Array.zeroCreate cnt
+
+        for i in 0..cnt-1 do
+            let R = Rs.[i]
+            let t = ts.[i]
+
+            res.[i] <- (R,t)
+
+        res
+
     let private copy (src : nativeptr<'a>) (dst : 'a[]) (cnt : int) =
         let gc = GCHandle.Alloc(dst, GCHandleType.Pinned)
         try

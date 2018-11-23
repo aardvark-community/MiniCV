@@ -30,6 +30,9 @@
     <ClInclude Include="fivepoint.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="ap3p.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="stdafx.cpp">
@@ -42,6 +45,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="fivepoint.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="ap3p.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
