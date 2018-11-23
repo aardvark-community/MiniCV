@@ -3,8 +3,8 @@ source https://api.nuget.org/v3/index.json
 
 nuget FSharp.Core                          ~> 4.3.0
 
-nuget Aardvark.Base                        >= 4.2.0 
-nuget Aardvark.Base.FSharp                 >= 4.2.0 
+nuget Aardvark.Base                        >= 4.3.0 
+nuget Aardvark.Base.FSharp                 >= 4.3.0 
 
 group Build
 framework: net45
