@@ -22,3 +22,6 @@ bin/Debug
 .idea/
 *.user
 .paket/
+**/.DS_Store
+src/MiniCVNative/*.o
+src/MiniCVNative/*.dylib

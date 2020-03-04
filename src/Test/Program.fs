@@ -53,7 +53,7 @@ module fufuf =
     [<EntryPoint>]
     let main argv =
         printfn "Hello World from F#!"
-
+        Aardvark.Init()
 
         let a = 
             [|

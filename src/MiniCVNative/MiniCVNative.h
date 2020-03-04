@@ -4,8 +4,8 @@
 #include <stdio.h>
 
 #include <vector>
-#include <opencv2\opencv.hpp>
-#include <opencv2\calib3d.hpp>
+#include <opencv2/opencv.hpp>
+#include <opencv2/calib3d.hpp>
 #include "fivepoint.h"
 #include "ap3p.h"
 #include "opencv2/calib3d/calib3d.hpp"

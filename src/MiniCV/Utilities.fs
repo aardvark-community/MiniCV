@@ -157,7 +157,7 @@ module Ray =
                 []
 
     let intersection ( r : list<Ray3d> ) = 
-        let pts = intersections' (HSet.ofList r |> HSet.toList)
+        let pts = intersections' (HashSet.ofList r |> HashSet.toList)
         match pts with
             | [] -> None
             | pts ->
@@ -165,5 +165,5 @@ module Ray =
                 Some (s / float c)
 
     let intersectiondfgdfg (r : list<Ray3d>) =
-        let r = HSet.ofList r |> HSet.toList
+        let r = HashSet.ofList r |> HashSet.toList
         r.GetMiddlePoint() |> Some

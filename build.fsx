@@ -1,6 +1,7 @@
-#load @"paket-files/build/vrvis/Aardvark.Fake/DefaultSetup.fsx"
+#r "paket: groupref Build //"
+#load ".fake/build.fsx/intellisense.fsx"
+#load @"paket-files/build/aardvark-platform/aardvark.fake/DefaultSetup.fsx"
 
-open Fake
 open System
 open System.IO
 open System.Diagnostics
@@ -10,22 +11,10 @@ do Environment.CurrentDirectory <- __SOURCE_DIRECTORY__
 
 DefaultSetup.install ["src/MiniCV.sln"]
 
-Target "Run" (fun() ->
-    tracefn "exec: %d" (Shell.Exec "bin/Release/MiniCV.exe")
-)
 
-Target "Test" (fun () ->
-    Fake.NUnitSequential.NUnit (fun p -> { p with ToolPath = @"packages\NUnit.Runners\tools"
-                                                  ToolName = "nunit-console.exe" }) [@"bin\Release\Aardvark.Base.Incremental.Tests.exe"]
-)
+#if DEBUG
+do System.Diagnostics.Debugger.Launch() |> ignore
+#endif
 
-Target "Statistics" (fun () ->
-    let fsFiles = !!"src/**/*.fs"  
-
-    let mutable stats = Map.empty
-    for f in fsFiles do
-        tracefn "file: %A" f
-        ()
-)
 
 entry()

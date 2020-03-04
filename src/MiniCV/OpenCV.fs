@@ -216,7 +216,7 @@ module OpenCV =
     module Native =
 
         [<Literal>]
-        let lib = @"MiniCVNative.dll"
+        let lib = @"MiniCVNative"
         
         [<DllImport(lib, EntryPoint = "cvRecoverPose"); SuppressUnmanagedCodeSecurity>]
         extern int cvRecoverPose_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat, V3d& tVec, byte[] ms)
@@ -432,7 +432,7 @@ module OpenCV =
                     match solver with
                     | Iterative ->
                         let rot = Rot3d.FromAngleAxis(V3d.OOI * Constant.Pi) * rotOrig
-                        let trn = rot.TransformDir(rotOrig.InvTransformDir(t))
+                        let trn = rot.Transform(rotOrig.InvTransform(t))
                         rot,trn
                     | EPNP ->
                         let rot = rotOrig

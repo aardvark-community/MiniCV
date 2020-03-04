@@ -51,7 +51,7 @@ module Projection =
     let approxEqual (eps : float) (l : Projection) (r : Projection) =
         Fun.ApproximateEquals(l.focalLength, r.focalLength, eps) &&
         Fun.ApproximateEquals(l.aspect, r.aspect, eps) &&
-        V2d.ApproxEqual(l.principalPoint, r.principalPoint, eps)
+        Fun.ApproximateEquals(l.principalPoint, r.principalPoint, eps)
 
     let project (p : V3d) (proj : Projection) =
         let z = p.Z
@@ -149,8 +149,8 @@ type CameraView =
 module CameraView =
 
     let approxEqual (eps : float) (l : CameraView) (r : CameraView) =
-        (Rot3d.ApproxEqual(l.trafo.Rot, r.trafo.Rot, eps) || Rot3d.ApproxEqual(-l.trafo.Rot, r.trafo.Rot, eps)) &&
-        V3d.ApproxEqual(l.trafo.Trans, r.trafo.Trans, eps)
+        (Fun.ApproximateEquals(l.trafo.Rot, r.trafo.Rot, eps) || Fun.ApproximateEquals(-l.trafo.Rot, r.trafo.Rot, eps)) &&
+        Fun.ApproximateEquals(l.trafo.Trans, r.trafo.Trans, eps)
         //Euclidean3d.ApproxEqual(l.trafo, r.trafo, eps, eps)
 
 
@@ -165,7 +165,7 @@ module CameraView =
     let forward (c : CameraView) = c.trafo.InvTransformDir(-V3d.OOI)
     let right (c : CameraView) = c.trafo.InvTransformDir(V3d.IOO)
     let up (c : CameraView) = c.trafo.InvTransformDir(V3d.OIO)
-    let location (c : CameraView) = c.trafo.Rot.InvTransformDir(-c.trafo.Trans)
+    let location (c : CameraView) = c.trafo.Rot.InvTransform(-c.trafo.Trans)
 
 
     let lookAt (eye : V3d) (center : V3d) (sky : V3d) =
@@ -179,7 +179,7 @@ module CameraView =
         // -r.TransformPos(eye) = r.Trans;
 
         let r = Rot3d.FromFrame(rv, uv, -fv).Inverse
-        let t = -r.TransformPos(eye)
+        let t = -r.Transform(eye)
         let e = Euclidean3d(r, t)
         { trafo = e }
 
@@ -333,13 +333,13 @@ module CameraMotion =
     let zero = { trafo = Euclidean3d.Identity; isNormalized = false }
 
     let approxEqual (eps : float) (l : CameraMotion) (r : CameraMotion) =
-        (Rot3d.ApproxEqual(l.trafo.Rot, r.trafo.Rot, eps) || Rot3d.ApproxEqual(-l.trafo.Rot, r.trafo.Rot, eps)) &&
-        V3d.ApproxEqual(l.trafo.Trans, r.trafo.Trans, eps)
+        (Fun.ApproximateEquals(l.trafo.Rot, r.trafo.Rot, eps) || Fun.ApproximateEquals(-l.trafo.Rot, r.trafo.Rot, eps)) &&
+        Fun.ApproximateEquals(l.trafo.Trans, r.trafo.Trans, eps)
 
     let normalize (m : CameraMotion) =
         if m.isNormalized then
             m
-        elif V3d.ApproxEqual(m.trafo.Trans, V3d.Zero, 1E-5) then
+        elif Fun.ApproximateEquals(m.trafo.Trans, V3d.Zero, 1E-5) then
             { m with isNormalized = true }
         else
             { 
@@ -364,4 +364,4 @@ module CameraMotion =
 
     let ofRotationAndTrans (m : M33d) (trans : V3d) =
         let r = Rot3d.FromM33d m
-        { trafo = Euclidean3d(r, r.TransformDir(trans)); isNormalized = false }
+        { trafo = Euclidean3d(r, r.Transform(trans)); isNormalized = false }
