@@ -16,6 +16,7 @@
   <ItemGroup>
     <NativeDependency Include="$(ProjectDir)..\..\lib\Native\MiniCV\windows\AMD64\*.dll" />
     <NativeDependency Include="$(ProjectDir)..\..\lib\Native\MiniCV\mac\AMD64\*.dylib" />
+    <NativeDependency Include="$(ProjectDir)..\..\lib\Native\MiniCV\linux\AMD64\*.so" />
   </ItemGroup>
   <Target Name="CopyNative" AfterTargets="Build">
     <MakeDir Condition="!Exists('$(OutputPath)..\netstandard2.0\')" Directories="$(OutputPath)..\netstandard2.0\" />

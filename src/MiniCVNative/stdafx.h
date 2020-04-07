@@ -6,11 +6,13 @@
 #pragma once
 
 #ifndef __APPLE__
+#ifndef __GNUC__
 #include "targetver.h"
 
 #define WIN32_LEAN_AND_MEAN             // Exclude rarely-used stuff from Windows headers
 // Windows Header Files:
 #include <windows.h>
+#endif
 #endif
 
 

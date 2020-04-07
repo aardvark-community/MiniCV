@@ -12,11 +12,6 @@ bin/Debug
 /.fake
 /.paket/paket.exe
 /Aardvark.log
-/lib/Native/MiniCV/windows/AMD64/MiniCVNative.exp
-/lib/Native/MiniCV/windows/AMD64/MiniCVNative.iobj
-/lib/Native/MiniCV/windows/AMD64/MiniCVNative.ipdb
-/lib/Native/MiniCV/windows/AMD64/MiniCVNative.lib
-/lib/Native/MiniCV/windows/AMD64/MiniCVNative.pdb
 /src/*.opendb
 /src/*.db
 .idea/
@@ -25,3 +20,4 @@ bin/Debug
 **/.DS_Store
 src/MiniCVNative/*.o
 src/MiniCVNative/*.dylib
+.ionide
