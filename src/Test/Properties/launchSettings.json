@@ -1,11 +1,7 @@
 {
   "profiles": {
     "Test": {
-      "commandName": "Project",
-      "workingDirectory": "D:\\proj_2\\minicv-besser\\bin\\Debug",
-      "environmentVariables": {
-        "LD_LIBRARY_PATH": "D:\\proj_2\\minicv-besser\\bin\\Debug"
-      }
+      "commandName": "Project"
     }
   }
 }

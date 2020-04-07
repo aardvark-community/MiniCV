@@ -426,7 +426,7 @@ module OpenCV =
                 let t = tRes
                 let ang = r.Length
                 let axs = r.Normalized
-                let rotOrig = Rot3d(axs,ang)
+                let rotOrig = Rot3d.Rotation(axs,ang)
                 
                 let rot, trn =
                     match solver with

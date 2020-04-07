@@ -8,12 +8,21 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>
-    <DebugType>full</DebugType>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
+  <ItemGroup>
+    <NativeDependency Include="$(ProjectDir)..\..\lib\Native\MiniCV\windows\AMD64\*.dll" />
+    <NativeDependency Include="$(ProjectDir)..\..\lib\Native\MiniCV\mac\AMD64\*.dylib" />
+  </ItemGroup>
+  <Target Name="CopyNative" AfterTargets="Build">
+    <MakeDir Condition="!Exists('$(OutputPath)..\netstandard2.0\')" Directories="$(OutputPath)..\netstandard2.0\" />
+    <MakeDir Condition="!Exists('$(OutputPath)..\netcoreapp3.1\')" Directories="$(OutputPath)..\netcoreapp3.1\" />
+    <Copy SourceFiles="@(NativeDependency)" DestinationFolder="$(OutputPath)..\netstandard2.0\" ContinueOnError="true" />
+    <Copy SourceFiles="@(NativeDependency)" DestinationFolder="$(OutputPath)..\netcoreapp3.1\"  ContinueOnError="true" />
+  </Target>
   <ItemGroup>
     <Compile Include="Utilities.fs" />
     <Compile Include="Camera.fs" />
