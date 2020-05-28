@@ -230,9 +230,6 @@ module OpenCV =
         [<DllImport(lib, EntryPoint = "cvFreeFeatures"); SuppressUnmanagedCodeSecurity>]
         extern void cvFreeFeatures_(DetectorResult* res)
 
-        [<DllImport(lib, EntryPoint = "cvDoStuff"); SuppressUnmanagedCodeSecurity>]
-        extern void cvDoStuff_()
-
         [<DllImport(lib, EntryPoint = "cvTest"); SuppressUnmanagedCodeSecurity>]
         extern void cvTest()
 
@@ -448,11 +445,3 @@ module OpenCV =
                 Some e
             else
                 None
-
-    open System
-    open System.IO
-    open System.Text
-
-    let undistortImages () =
-        Native.cvDoStuff_()
-            

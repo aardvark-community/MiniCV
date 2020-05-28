@@ -21,3 +21,4 @@ bin/Debug
 src/MiniCVNative/*.o
 src/MiniCVNative/*.dylib
 .ionide
+Aardvark.log
