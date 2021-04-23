@@ -22,13 +22,15 @@
     <MakeDir Condition="!Exists('$(OutputPath)..\netstandard2.0\')" Directories="$(OutputPath)..\netstandard2.0\" />
     <MakeDir Condition="!Exists('$(OutputPath)..\netcoreapp3.1\')" Directories="$(OutputPath)..\netcoreapp3.1\" />
     <Copy SourceFiles="@(NativeDependency)" DestinationFolder="$(OutputPath)..\netstandard2.0\" ContinueOnError="true" />
-    <Copy SourceFiles="@(NativeDependency)" DestinationFolder="$(OutputPath)..\netcoreapp3.1\"  ContinueOnError="true" />
+    <Copy SourceFiles="@(NativeDependency)" DestinationFolder="$(OutputPath)..\netcoreapp3.1\" ContinueOnError="true" />
   </Target>
   <ItemGroup>
+    <None Include="paket.references" />
     <Compile Include="Utilities.fs" />
     <Compile Include="Camera.fs" />
     <Compile Include="CameraPose.fs" />
     <Compile Include="OpenCV.fs" />
   </ItemGroup>
+  <ItemGroup />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
