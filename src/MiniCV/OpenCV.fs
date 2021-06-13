@@ -58,6 +58,16 @@ type ImageFeatures =
         descriptorDimension     : int
     }
 
+[<Struct; StructLayout(LayoutKind.Sequential)>]
+type ArucoMarkerInfo =
+    {
+        Id : int
+        P0 : V2f
+        P1 : V2f
+        P2 : V2f
+        P3 : V2f
+    }
+
 [<CompilationRepresentation(CompilationRepresentationFlags.ModuleSuffix)>]
 module ImageFeatures =
     let private cmp (d : int) = Func<Vector<'a>, Vector<'a>, int>(fun (l : Vector<'a>) (r : Vector<'a>) -> compare l.[d % int l.S] r.[d % int r.S])
@@ -213,6 +223,7 @@ module OpenCV =
         | Brisk = 3
 
 
+
     module Native =
 
         [<Literal>]
@@ -242,6 +253,15 @@ module OpenCV =
         [<DllImport(lib, EntryPoint = "solveAp3p"); SuppressUnmanagedCodeSecurity>]
         extern int solveAp3p(M33d* Rs, V3d* ts, float mu0, float mv0, float X0, float Y0, float Z0, float mu1, float mv1, float X1, float Y1, float Z1, float mu2, float mv2, float X2, float Y2, float Z2, float inv_fx, float inv_fy, float cx_fx, float cy_fy)
         
+        
+        [<DllImport(lib, EntryPoint = "cvDetectQRCode"); SuppressUnmanagedCodeSecurity>]
+        extern bool cvDetectQRCode(byte* data, int width, int height, int channels, V2i* positions, int& count)
+
+
+        [<DllImport(lib, EntryPoint = "cvDetectArucoMarkers"); SuppressUnmanagedCodeSecurity>]
+        extern bool cvDetectArucoMarkers(byte* data, int width, int height, int channels, int& infoCount, ArucoMarkerInfo* infos)
+
+
     let solveAp3p (img : V2d[]) (world : V3d[]) (intern : M33d) =
         assert(img.Length = world.Length)
         
@@ -329,6 +349,325 @@ module OpenCV =
                 }
         finally
             Native.cvFreeFeatures_ ptr
+            gc.Free()
+
+    let codeList = 
+        [|
+            0xB905C6D4BUL
+            0xA72C88006UL
+            0x4E7DF6048UL
+            0x2D36B51FFUL
+            0x923D95BA1UL
+            0x397F5862DUL
+            0xC87F8ADB6UL
+            0xF82A3124AUL
+            0xC0A2CF100UL
+            0x737462571UL
+            0xB6E7D4357UL
+            0x223A86F58UL
+            0xE4F92512DUL
+            0xDC1487274UL
+            0x15F4F8D1EUL
+            0x7EAF2CBE4UL
+            0x8FFF44491UL
+            0x602966832UL
+            0x88ACD92FDUL
+            0xBAB38983BUL
+            0xA1FC3EB88UL
+            0xAC70C8568UL
+            0xFF7E4F947UL
+            0x30751B142UL
+            0xEE212AB09UL
+            0xC93D398C4UL
+            0x3FBC30DC3UL
+            0x9333D2420UL
+            0x0C6B81054UL
+            0x69BC2E46EUL
+            0x98FDA260BUL
+            0x06BFEB1CFUL
+            0x0859FD363UL
+            0xA63E7D83CUL
+            0xC67AEF6E4UL
+            0xC6FC50922UL
+            0x4AB35065BUL
+            0x9AFB1633CUL
+            0x75B9F62D5UL
+            0x1EBCCAB11UL
+            0x843746B6DUL
+            0x626D403CDUL
+            0x102B6A744UL
+            0x50EEAFA35UL
+            0x66FC99555UL
+            0xB13E05532UL
+            0x0DEF2D93AUL
+            0xA070F7955UL
+            0x0AEA3A0E0UL
+            0x7A2AF8135UL
+            0x2E789DACEUL
+            0x2773AC331UL
+            0x20B296227UL
+            0x07B8487ADUL
+            0xF0BE80864UL
+            0xAD79C2B8FUL
+            0x6935CC585UL
+            0x4034632E8UL
+            0x68EFE4778UL
+            0x9737A38D1UL
+            0x5630DA056UL
+            0x3FB16A0B0UL
+            0xFA7A4B498UL
+            0x13337DB58UL
+            0x00FE137F3UL
+            0x5E7BB9D0BUL
+            0x781F73B11UL
+            0x9D3816A22UL
+            0xC13FF4DDBUL
+            0x8FB69B125UL
+            0xBE74334EDUL
+            0xFCADA9430UL
+            0x20E4C192FUL
+            0x943B71699UL
+            0xA1F587279UL
+            0xD8B47C161UL
+            0x203A2D081UL
+            0x47FD22356UL
+            0xA8662CA26UL
+            0x19ABD099CUL
+            0x56F0B7938UL
+            0xA6B94E643UL
+            0xA9EFC99C1UL
+            0xBA35A035CUL
+            0xDCFFB5EACUL
+            0xA6AA03AB0UL
+            0x22F7E2AF4UL
+            0x820A88361UL
+            0xFA79BF026UL
+            0xEF3DD1073UL
+            0x7C2CDD908UL
+            0x493AC2843UL
+            0x273FB2DACUL
+            0x4F34AE9A2UL
+            0x341DA8937UL
+            0x0B778118AUL
+            0xE93BE5BB4UL
+            0x228428074UL
+            0x99F091742UL
+            0xE4A6A1159UL
+            0x01B9B0171UL
+            0x2CF3D3891UL
+            0x08241BBA4UL
+            0x2CB8AA9C4UL
+            0x0E30F17F1UL
+            0x0E9560829UL
+            0x302D90641UL
+            0x6CF5393F0UL
+            0x88B818116UL
+            0x103C8618EUL
+            0x946ED58F0UL
+            0x183FDEAC5UL
+            0x625EDC032UL
+            0x673B7B204UL
+            0xECB00C6B5UL
+            0x90B323321UL
+            0x23A706842UL
+            0x15FB54BE1UL
+            0x92EE70A1EUL
+            0x3E3F0AE72UL
+            0x5BFBA74FDUL
+            0xA5B24C11BUL
+            0x01F4AD2C4UL
+            0x28A2041ECUL
+            0xCAB54FBD5UL
+            0x9F71E7A6CUL
+            0x453655392UL
+            0xCFBB9C3C0UL
+            0xBA1CA3163UL
+            0xE6FDD3FDAUL
+            0x847824C46UL
+            0x33AB093D5UL
+            0xA17F6311CUL
+            0xB46B4705BUL
+            0x97FBAA108UL
+            0xD6BF762B2UL
+            0x86B48576EUL
+            0xBCBEECDB9UL
+            0x8E5F70B77UL
+            0xF475C3767UL
+            0xC1775F822UL
+            0xAFF13985DUL
+            0xD57AC0C8CUL
+            0xA46EF1736UL
+            0xB1AD5B011UL
+            0xB07902CB1UL
+            0x8477497D4UL
+            0x36340C06BUL
+            0x24E3FF962UL
+            0xCB77D77E1UL
+            0x5EF7E1A42UL
+            0x4A723315EUL
+            0x0A6EC256EUL
+            0x2F7827999UL
+            0x4279690BEUL
+            0xD62F5D403UL
+            0xE27CF9A49UL
+            0x03B856884UL
+            0x21B27B4F9UL
+            0x9435FF700UL
+            0x31FF8ECDEUL
+            0x95B9CC166UL
+            0xFC775080BUL
+            0x032D00B38UL
+            0xDC3F0E0A9UL
+            0x0EE59321FUL
+            0x6EBC61F1CUL
+            0xA20FF626CUL
+            0x48269D873UL
+            0x15BA2BA5EUL
+            0x36F700728UL
+            0x1BFD5A97AUL
+            0x94ED3974DUL
+            0xEBBE236C0UL
+            0xD63E9771DUL
+            0xEA6F17970UL
+            0x58F74B52BUL
+            0x4CFE38811UL
+            0x8C3E7BDE2UL
+            0x26DFB5B5CUL
+            0x2EA14DA76UL
+            0x89B3E67CCUL
+            0xB4BBF9D54UL
+            0xD4FE65F51UL
+            0x7A3F14567UL
+            0xBDB39204EUL
+            0x4835BA675UL
+            0x64A258A48UL
+            0x821D59108UL
+            0x077690F47UL
+            0xCEA77530DUL
+            0x617EE66BFUL
+            0x18AFCD222UL
+            0x56A5CD17DUL
+            0x3F3AE5016UL
+            0x1575D4035UL
+            0x387A81BE9UL
+            0x10761C2B8UL
+            0x70DAF2858UL
+            0x81B151A67UL
+            0xE5F7161C5UL
+            0xCE695166CUL
+            0xA1BCA3F17UL
+            0xABB7ED474UL
+            0xC8F0E24D1UL
+            0x4CFA9E96FUL
+            0x713FF91A2UL
+            0x393010474UL
+            0xBEFA64260UL
+            0x08BB28EBCUL
+            0x8F7634968UL
+            0x92F4FE67CUL
+            0xC6B5B820AUL
+            0xA82C0A858UL
+            0x42E318326UL
+            0xAC3774E50UL
+            0x063B9F0F8UL
+            0xE63D9AA95UL
+            0xB0B8894CFUL
+            0x3FF2B0384UL
+            0x0DAF73807UL
+            0x04AC5C472UL
+            0x92720F255UL
+            0xC233F2387UL
+            0x176F17104UL
+            0xA52EE6121UL
+            0x1AAE31979UL
+            0x3BEDF9A34UL
+            0xC86256229UL
+            0x7433B4941UL
+            0x8C686B200UL
+            0x901E4AA0BUL
+            0xB4A1C6805UL
+            0x9C6FEA6F1UL
+            0xEC7C36533UL
+            0x5E3D6C8D3UL
+            0xCA7C15A3FUL
+            0x0C3F22559UL
+            0x3CBD837BDUL
+            0x3EF9D0407UL
+            0x0DFACF1D2UL
+            0xEC6FA681DUL
+            0x96B113BCCUL
+            0xB27EF4508UL
+            0xCAFFAD313UL
+            0xD6FF9A47BUL
+            0x2BB0E0B62UL
+            0x82E9DCB4CUL
+            0x2038FAE0EUL
+            0x057DB1AB2UL
+        |]
+
+    let createArucoMarker (minPixels : int) (value : int) =
+        let cellSize = ceil (float minPixels / 8.0) |> int
+        let result = PixImage<byte>(Col.Format.Gray, V2i(8,8) * cellSize)
+        let mutable res = result.GetChannel(0L)
+
+
+
+        let code = codeList.[value]
+        let inline hasBit (i : int) = ((code >>> i) &&& 1UL) <> 0UL
+        for y in 0 .. 5 do
+            for x in 0 .. 5 do
+                let v = hasBit (y * 6 + x)
+
+                let cell = V2i(x+1, y+1)
+                let dst = res.SubMatrix(cell * cellSize, V2i cellSize)
+                dst.Set(if v then 255uy else 0uy) |> ignore
+
+        result
+
+
+
+          
+    let detectArucoMarkers (img : PixImage<byte>) =
+        let img = img.ToCanonicalDenseLayout() |> unbox<PixImage<byte>>
+
+        let gc = GCHandle.Alloc(img.Volume.Data, GCHandleType.Pinned)
+        try
+
+            let infos = Array.zeroCreate 256
+            let mutable ic = infos.Length
+
+            use pInfos = fixed infos
+            let res = 
+                Native.cvDetectArucoMarkers(
+                    NativePtr.ofNativeInt (gc.AddrOfPinnedObject()), img.Size.X, img.Size.Y, img.ChannelCount,
+                    &ic, pInfos
+                )
+            if res then
+                Array.take ic infos
+            else
+                printfn "failed"
+                [||]
+
+
+        finally
+            gc.Free()
+        
+
+    let detectQRCode (img : PixImage<byte>) =
+        let img = img.ToCanonicalDenseLayout() |> unbox<PixImage<byte>>
+
+        let gc = GCHandle.Alloc(img.Volume.Data, GCHandleType.Pinned)
+        try
+            let positions = NativePtr.stackalloc<V2i> 32
+            let mutable cnt = 32
+            let worked = Native.cvDetectQRCode(NativePtr.ofNativeInt (gc.AddrOfPinnedObject()), img.Size.X, img.Size.Y, img.ChannelCount, positions, &cnt)
+            if worked then
+                Array.init cnt (fun i ->
+                    NativePtr.get positions i
+                )
+            else
+                [||]
+        finally
             gc.Free()
 
     let recoverPose (cfg : RecoverPoseConfig) (a : V2d[]) (b : V2d[]) =

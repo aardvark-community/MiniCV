@@ -50,11 +50,74 @@ module fufuf =
         let x1 = x - Vec.dot z x * z - Vec.dot y1 x * y1 |> Vec.normalize
 
         M33d.FromCols(x1,y1,z)
+
+    open System.IO
+    // aruco_mip_36h12_00000
+    let rx = System.Text.RegularExpressions.Regex @"^(.*)_([0-9]+)$"
+
+    let arucoDict(folder : string) =
+        let all = 
+            Directory.GetFiles(folder)
+            |> Array.choose (fun f ->
+                let name = Path.GetFileNameWithoutExtension f
+                let m = rx.Match name
+                if m.Success then
+                    Some (int m.Groups.[2].Value, f)
+                else
+                    None
+            )
+            |> Array.sortBy fst
+
+        
+        let mutable i = 0
+        for (id, file) in all do
+            let m = PixImage.Create(file).ToPixImage<byte>().GetChannel(0L)
+            let cellSize = V2i m.Size / 10
+            let getBit (x : int) (y : int) =
+                let c = (cellSize * 5) / 2 + V2i(x,y)*cellSize
+                m.[c] > 127uy
+
+            let mutable value = 0UL
+            for y in 0 .. 5 do
+                for x in 0 .. 5 do
+                    let s = y * 6 + x
+                    if getBit x y then value <- value ||| (1UL <<< s)
+
+            if id <> i then failwithf "non-dense"
+            printfn "0x%09XUL" value
+
+            i <- i + 1
+
+
     [<EntryPoint>]
     let main argv =
-        printfn "Hello World from F#!"
         Aardvark.Init()
 
+        let mImg = MiniCV.OpenCV.createArucoMarker 512 123
+        mImg.SaveAsImage @"C:\Users\Schorsch\Desktop\123.png"
+
+        let image = PixImage.Create @"C:\Users\Schorsch\Desktop\signal-2021-04-28-115312_004.jpeg"
+        let image = image.ToPixImage<byte>()
+        image.GetMatrix<C4b>().SubMatrix(V2i(124, 321), mImg.Size).Set(mImg.GetMatrix<C4b>())
+        |> ignore
+
+        let gray = PixImage<byte>(Col.Format.Gray, image.Size)
+        gray.GetChannel(0L).SetMap(image.ToPixImage<byte>().GetMatrix<C4b>(), fun (c : C4b) -> c.ToGrayByte()) |> ignore
+        let markers = MiniCV.OpenCV.detectArucoMarkers(gray)
+
+
+        let mat = image.GetMatrix<C4b>()
+
+        for m in markers do
+            mat.SetLine(V2d m.P0, V2d m.P1, C4b.Red)
+            mat.SetLine(V2d m.P1, V2d m.P2, C4b.Red)
+            mat.SetLine(V2d m.P2, V2d m.P3, C4b.Red)
+            mat.SetLine(V2d m.P3, V2d m.P0, C4b.Red)
+
+
+        image.SaveAsImage @"C:\Users\Schorsch\Desktop\arucoResult.jpg"
+
+        exit 0
         let a = 
             [|
                 V2d.Zero

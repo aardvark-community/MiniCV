@@ -22,32 +22,32 @@
     <ProjectGuid>{7F036AC8-60B4-43FF-B592-82BFA560A200}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>MiniCVNative</RootNamespace>
-    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v142</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -73,8 +73,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)..\bin\Debug\</OutDir>
-    <IntDir>$(SolutionDir)..\bin\Debug\MiniCVNative\AMD64\</IntDir>
+    <OutDir>$(ProjectDir)..\..\bin\Debug\</OutDir>
+    <IntDir>$(ProjectDir)..\..\bin\Debug\MiniCVNative\AMD64\</IntDir>
     <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -82,8 +82,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <OutDir>$(SolutionDir)..\lib\Native\MiniCV\windows\AMD64\</OutDir>
-    <IntDir>$(SolutionDir)..\bin\Release\MiniCVNative\AMD64\</IntDir>
+    <OutDir>$(ProjectDir)..\..\lib\Native\MiniCV\windows\AMD64\</OutDir>
+    <IntDir>$(ProjectDir)..\..\bin\Release\MiniCVNative\AMD64\</IntDir>
     <CustomBuildAfterTargets>Build</CustomBuildAfterTargets>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -108,18 +108,18 @@
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;_USRDLL;MINICVNATIVE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opencv_world343.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_world452d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
-      <Command>xcopy "$(SolutionDir)..\bin\Debug\MiniCVNative.dll" "$(SolutionDir)..\bin\Release\" /Y
-xcopy "$(SolutionDir)..\bin\Debug\MiniCVNative.dll" "$(SolutionDir)..\bin\Debug\netcoreapp2.0" /Y
-xcopy "$(SolutionDir)..\bin\Debug\MiniCVNative.dll" "$(SolutionDir)..\bin\Release\netcoreapp2.0" /Y</Command>
+      <Command>xcopy "$(ProjectDir)..\..\bin\Debug\MiniCVNative.dll" "$(ProjectDir)..\..\bin\Release\" /Y
+xcopy "$(ProjectDir)..\..\bin\Debug\MiniCVNative.dll" "$(ProjectDir)..\..\bin\Debug\netcoreapp3.1" /Y
+xcopy "$(ProjectDir)..\..\bin\Debug\MiniCVNative.dll" "$(ProjectDir)..\..\bin\Release\netcoreapp3.1" /Y</Command>
       <Outputs>$(SolutionDir)..\bin\Release\MiniCVNative.dll;$(SolutionDir)..\bin\Debug\netcoreapp2.0\MiniCVNative.dll;$(SolutionDir)..\bin\Release\netcoreapp2.0\MiniCVNative.dll;%(Outputs)</Outputs>
     </CustomBuildStep>
   </ItemDefinitionGroup>
@@ -150,21 +150,21 @@ xcopy "$(SolutionDir)..\bin\Debug\MiniCVNative.dll" "$(SolutionDir)..\bin\Releas
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;_USRDLL;MINICVNATIVE_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(SolutionDir)..\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\include\;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>$(SolutionDir)..\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>opencv_world343.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opencv_world452.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CustomBuildStep>
-      <Command>xcopy "$(SolutionDir)..\lib\Native\MiniCV\windows\AMD64\*" "$(SolutionDir)..\bin\Release\" /Y
-xcopy "$(SolutionDir)..\lib\Native\MiniCV\windows\AMD64\*" "$(SolutionDir)..\bin\Debug\" /Y
-xcopy "$(SolutionDir)..\lib\Native\MiniCV\windows\AMD64\*" "$(SolutionDir)..\bin\Debug\netcoreapp2.0" /Y
-xcopy "$(SolutionDir)..\lib\Native\MiniCV\windows\AMD64\*" "$(SolutionDir)..\bin\Release\netcoreapp2.0" /Y</Command>
+      <Command>xcopy "$(ProjectDir)..\..\lib\Native\MiniCV\windows\AMD64\*" "$(ProjectDir)..\..\bin\Release\" /Y
+xcopy "$(ProjectDir)..\..\lib\Native\MiniCV\windows\AMD64\*" "$(ProjectDir)..\..\bin\Debug\" /Y
+xcopy "$(ProjectDir)..\..\lib\Native\MiniCV\windows\AMD64\*" "$(ProjectDir)..\..\bin\Debug\netcoreapp3.1" /Y
+xcopy "$(ProjectDir)..\..\lib\Native\MiniCV\windows\AMD64\*" "$(ProjectDir)..\..\bin\Release\netcoreapp3.1" /Y</Command>
       <Outputs>$(SolutionDir)..\bin\Debug\MiniCVNative.dll;$(SolutionDir)..\bin\Release\MiniCVNative.dll;%(Outputs)</Outputs>
       <Message>copy to bin</Message>
     </CustomBuildStep>
@@ -174,6 +174,7 @@ xcopy "$(SolutionDir)..\lib\Native\MiniCV\windows\AMD64\*" "$(SolutionDir)..\bin
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ap3p.h" />
+    <ClInclude Include="aruco_nano.h" />
     <ClInclude Include="fivepoint.h" />
     <ClInclude Include="MiniCVNative.h" />
     <ClInclude Include="stdafx.h" />

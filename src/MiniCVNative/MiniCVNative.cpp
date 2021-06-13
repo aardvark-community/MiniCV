@@ -5,6 +5,7 @@
 #include "MiniCVNative.h"
 #include <string>
 #include <iostream>
+#include <opencv2/imgproc/types_c.h>
 
 using namespace cv;
 using namespace std;
@@ -279,6 +280,126 @@ DllExport(int) cvFivePoint(const Point2d* pa, const Point2d* pb, Matx33d* Es)
 		Es[i] = m33;
 	}
 	return cnt;
+}
+
+DllExport(bool) cvDetectQRCode(char* data, int width, int height, int channels, int* positions, int* count)
+{
+	int fmt;
+	int convert;
+	switch (channels)
+	{
+	case 1:
+		fmt = CV_8UC1;
+		convert = 0;
+		break;
+	case 2:
+		fmt = CV_8UC2;
+		convert = 0;
+		break;
+	case 3:
+		fmt = CV_8UC3;
+		convert = CV_RGB2GRAY;
+		break;
+	case 4:
+		fmt = CV_8UC4;
+		convert = CV_RGBA2GRAY;
+		break;
+	default:
+		return false;
+	}
+	cv::setBreakOnError(false);
+
+	Mat input(height, width, fmt, (void*)data);
+	cv::Ptr<cv::FeatureDetector> detector;
+	
+	Mat img;
+	if (convert != 0) cv::cvtColor(input, img, CV_RGB2GRAY);
+	else img = input;
+
+
+	std::vector<cv::Point> points;
+	cv::QRCodeDetector d;
+	if (d.detect(img, points))
+	{
+		auto cnt = std::min((int)points.size(), *count);
+
+		int o = 0;
+		for (int i = 0; i < cnt; i++)
+		{
+			positions[o++] = points[i].x;
+			positions[o++] = points[i].y;
+		}
+		*count = cnt;
+		return true;
+	}
+	else return false;
+
+}
+
+
+DllExport(bool) cvDetectArucoMarkers(char* data, int width, int height, int channels, int* infoCount, ArucoMarkerInfo* infos)
+{
+	int fmt;
+	int convert;
+	switch (channels)
+	{
+	case 1:
+		fmt = CV_8UC1;
+		convert = 0;
+		break;
+	case 2:
+		fmt = CV_8UC2;
+		convert = 0;
+		break;
+	case 3:
+		fmt = CV_8UC3;
+		convert = CV_RGB2GRAY;
+		break;
+	case 4:
+		fmt = CV_8UC4;
+		convert = CV_RGBA2GRAY;
+		break;
+	default:
+		return false;
+	}
+	cv::setBreakOnError(false);
+
+	Mat input(height, width, fmt, (void*)data);
+	Mat img;
+
+	if (convert != 0) cv::cvtColor(input, img, convert);
+	else img = input;
+
+	aruconano::MarkerDetector detector;
+	
+	auto result = detector.detect(img);
+
+	int pi = 0;
+	int ii = 0;
+	int ic = *infoCount;
+	for (int i = 0; i < result.size(); i++)
+	{
+		auto marker = result[i];
+		auto start = pi;
+		V2f tmp[4];
+		for (int ipi = 0; ipi < marker.size() && ipi < 4; ipi++)
+		{
+			auto pt = marker[ipi];
+			tmp[ipi] = { pt.x, pt.y };
+			pi++;
+		}
+		if (infos && ii < ic) infos[ii] = { marker.id, tmp[0], tmp[1], tmp[2], tmp[3] };
+		ii++;
+	}
+
+	if (ii > 0 && ii <= ic)
+	{
+		*infoCount = ii;
+
+		return true;
+	}
+	else return false;
+
 }
 
 DllExport(void) cvTest()

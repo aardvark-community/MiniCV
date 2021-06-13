@@ -22,3 +22,8 @@ src/MiniCVNative/*.o
 src/MiniCVNative/*.dylib
 .ionide
 Aardvark.log
+**/.vs/
+*.pdb
+*.tlog
+src/MiniCVNative/Debug
+src/MiniCVNative/Release
