@@ -98,7 +98,7 @@ module fufuf =
 
         let image = PixImage.Create @"C:\Users\Schorsch\Desktop\signal-2021-04-28-115312_004.jpeg"
         let image = image.ToPixImage<byte>()
-        image.GetMatrix<C4b>().SubMatrix(V2i(124, 321), mImg.Size).Set(mImg.GetMatrix<C4b>())
+        image.GetMatrix<C4b>().SubMatrix(V2i(124, 321), mImg.Size).SetMap(mImg.GetChannel(0L), fun (v : byte) -> C4b(v))
         |> ignore
 
         let gray = PixImage<byte>(Col.Format.Gray, image.Size)

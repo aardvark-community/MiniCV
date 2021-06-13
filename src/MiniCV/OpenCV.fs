@@ -606,11 +606,11 @@ module OpenCV =
         |]
 
     let createArucoMarker (minPixels : int) (value : int) =
-        let cellSize = ceil (float minPixels / 8.0) |> int
-        let result = PixImage<byte>(Col.Format.Gray, V2i(8,8) * cellSize)
+        let cellSize = ceil (float minPixels / 10.0) |> int
+        let result = PixImage<byte>(Col.Format.Gray, V2i(10,10) * cellSize)
         let mutable res = result.GetChannel(0L)
-
-
+        res.Set(255uy) |> ignore
+        res.SubMatrix(V2i(cellSize, cellSize), 8*V2i(cellSize, cellSize)).Set(0uy) |> ignore
 
         let code = codeList.[value]
         let inline hasBit (i : int) = ((code >>> i) &&& 1UL) <> 0UL
@@ -618,7 +618,7 @@ module OpenCV =
             for x in 0 .. 5 do
                 let v = hasBit (y * 6 + x)
 
-                let cell = V2i(x+1, y+1)
+                let cell = V2i(x+2, y+2)
                 let dst = res.SubMatrix(cell * cellSize, V2i cellSize)
                 dst.Set(if v then 255uy else 0uy) |> ignore
 
@@ -645,7 +645,6 @@ module OpenCV =
             if res then
                 Array.take ic infos
             else
-                printfn "failed"
                 [||]
 
 
