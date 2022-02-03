@@ -42,11 +42,8 @@ fi
 
 ./.vcpkg/vcpkg/bootstrap-vcpkg.sh
 
-export VCPKG_NUGET_REPOSITORY="https://github.com/aardvark-community/MiniCV"
-# mono `./.vcpkg/vcpkg/vcpkg fetch nuget | tail -n 1` sources add -Source "https://nuget.pkg.github.com/aardvark-community/index.json" -Name "Github" -username aardvark-community -password "$GITHUB_TOKEN"  -storepasswordincleartext
-
-./.vcpkg/vcpkg/vcpkg install OpenCV --triplet $VCPKG_TRIPLET --binarysource='clear;nuget,Github,readwrite'
-
+export VCPKG_NUGET_REPOSITORY=https://github.com/aardvark-community/MiniCV
+./.vcpkg/vcpkg/vcpkg install OpenCV --triplet $VCPKG_TRIPLET --binarysource='clear;nuget,GitHub,readwrite;nugettimeout,1000'
 
 rm -dfr src/MiniCVNative/build
 cmake -S src/MiniCVNative/ -B src/MiniCVNative/build $ARCH_FLAGS \
