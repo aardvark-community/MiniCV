@@ -36,7 +36,7 @@ then
 
 else
     echo "Linux"
-    sudo apt-get install -y gperf
+    sudo apt-get install -y gperf fontconfig libgles2-mesa-dev
     VCPKG_TRIPLET="x64-linux-release"
 fi
 
