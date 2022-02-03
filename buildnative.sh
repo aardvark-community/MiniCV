@@ -41,6 +41,9 @@ else
 fi
 
 ./.vcpkg/vcpkg/bootstrap-vcpkg.sh
+
+mono `./.vcpkg/vcpkg/vcpkg fetch nuget | tail -n 1` sources add -source "https://nuget.pkg.github.com/aardvark-community/index.json" -storepasswordincleartext -name "GitHub" -username "aardvark-community" -password "$GITHUB_TOKEN"
+
 ./.vcpkg/vcpkg/vcpkg install OpenCV --triplet $VCPKG_TRIPLET
 
 
