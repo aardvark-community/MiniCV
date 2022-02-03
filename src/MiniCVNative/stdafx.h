@@ -19,9 +19,9 @@
 // TODO: reference additional headers your program requires here
 
 #ifdef __APPLE__
-#define DllExport(t) extern "C" t
+#define DllExport(t) extern "C" __attribute__((visibility("default"))) t
 #elif __GNUC__
-#define DllExport(t) extern "C" t
+#define DllExport(t) extern "C" __attribute__((visibility("default"))) t
 #else
 #define DllExport(t) extern "C"  __declspec( dllexport ) t __cdecl
 #endif
