@@ -17,7 +17,7 @@ jobs:
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
-          mono `./vcpkg/vcpkg fetch nuget | tail -n 1`
+          mono .config/nuget.exe
           sources add
           -source "https://nuget.pkg.github.com/aardvark-community/index.json"
           -storepasswordincleartext
@@ -25,8 +25,6 @@ jobs:
           -username "aardvark-community"
           -password "${{ secrets.GITHUB_TOKEN }}"
       - name: Build Native Libraries
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./buildnative.sh x86_64
       - name: Install Dotnet 
         uses: actions/setup-dotnet@v1
@@ -52,7 +50,7 @@ jobs:
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
-          mono `./vcpkg/vcpkg fetch nuget | tail -n 1`
+          mono .config/nuget.exe
           sources add
           -source "https://nuget.pkg.github.com/aardvark-community/index.json"
           -storepasswordincleartext
@@ -77,7 +75,7 @@ jobs:
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
-          mono `./vcpkg/vcpkg fetch nuget | tail -n 1`
+          mono .config/nuget.exe
           sources add
           -source "https://nuget.pkg.github.com/aardvark-community/index.json"
           -storepasswordincleartext
@@ -112,7 +110,7 @@ jobs:
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
-          mono `./vcpkg/vcpkg fetch nuget | tail -n 1`
+          .config/nuget.exe
           sources add
           -source "https://nuget.pkg.github.com/aardvark-community/index.json"
           -storepasswordincleartext
