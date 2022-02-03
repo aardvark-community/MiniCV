@@ -155,7 +155,7 @@ jobs:
         with:
           name: mac_x64
           path: libs/Native/MiniCV/mac/AMD64/
-      - name: Download MacOS dependencies (arm64) 
+      - name: Download MacOS dependencies (arm64)
         uses: actions/download-artifact@v2
         with:
           name: mac_arm64
