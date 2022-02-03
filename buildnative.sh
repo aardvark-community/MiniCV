@@ -36,6 +36,7 @@ then
 
 else
     echo "Linux"
+    apt-get install gperf
     VCPKG_TRIPLET="x64-linux-release"
 fi
 
