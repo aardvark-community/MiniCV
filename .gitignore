@@ -27,3 +27,6 @@ Aardvark.log
 *.tlog
 src/MiniCVNative/Debug
 src/MiniCVNative/Release
+src/MiniCVNative/build
+/.vcpkg
+/.vscode/*.log

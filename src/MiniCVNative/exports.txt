@@ -1,8 +1,0 @@
-_cvRecoverPose
-_cvRecoverPoses
-_cvDetectFeatures
-_cvFreeFeatures
-_cvTest
-_cvFivePoint
-_cvSolvePnP
-_solveAp3p
