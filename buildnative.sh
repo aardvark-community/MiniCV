@@ -1,12 +1,14 @@
 #!/bin/bash
 
-OS=`uname -s`
+OS=`uname -s | tail -1`
 
 VCPKG_TRIPLET=""
 ARCH=""
 ARCH_FLAGS=""
 
 a="/$0"; a=${a%/*}; a=${a#/}; a=${a:-.}; BASEDIR=$(cd "$a"; pwd)
+
+mono .config/nuget.exe setApiKey -Source GitHub $GITHUB_TOKEN -NonInteractive
 
 rm -dfr .vcpkg
 mkdir .vcpkg
@@ -23,12 +25,14 @@ then
         ARCH="arm64"
         echo "set(VCPKG_BUILD_TYPE release)" >> .vcpkg/vcpkg/triplets/community/arm64-osx.cmake
     else
-        ARCH=`uname -m`
+        ARCH=`uname -m | tail -1`
         if [ "$ARCH" = "x86_64" ]; then
             VCPKG_TRIPLET="x64-osx-release"
-        elif [ "$ARCH" ]; then
+        elif [ "$ARCH" = "arm64" ]; then
             VCPKG_TRIPLET="arm64-osx"
             echo "set(VCPKG_BUILD_TYPE release)" >> .vcpkg/vcpkg/triplets/community/arm64-osx.cmake
+        else
+            echo "bad arch $ARCH a"
         fi
     fi
 

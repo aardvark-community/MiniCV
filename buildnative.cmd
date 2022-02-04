@@ -1,5 +1,6 @@
 @echo off
 
+.config/nuget.exe setApiKey -Source GitHub $GITHUB_TOKEN -NonInteractive
 cmd /C "rmdir /S /Q .vcpkg"
 
 git clone https://github.com/Microsoft/vcpkg.git ./.vcpkg/vcpkg --depth 1

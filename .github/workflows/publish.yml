@@ -25,6 +25,8 @@ jobs:
           -username "aardvark-community"
           -password "${{ secrets.GITHUB_TOKEN }}"
       - name: Build Native Libraries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: ./buildnative.sh x86_64
       - name: Install Dotnet 
         uses: actions/setup-dotnet@v1
@@ -118,6 +120,8 @@ jobs:
           -username "aardvark-community"
           -password "${{ secrets.GITHUB_TOKEN }}"
       - name: Build Native Libraries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         shell: cmd
         run: buildnative.cmd
       - name: Install Dotnet
