@@ -16,7 +16,6 @@
     <Compile Include="Camera.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup>
     <ProjectReference Include="..\MiniCV\MiniCV.fsproj" />
   </ItemGroup>
