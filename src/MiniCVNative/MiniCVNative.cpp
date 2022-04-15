@@ -76,8 +76,7 @@ DllExport(bool) cvSolvePnP(const Point2d* imgPoints, const Point3d* worldPoints,
 
 	Vec3d tOut;
 	Vec3d rOut;
-
-	bool suc = cv::solvePnP(world, image, intern, distortion, rOut, tOut, true, kind);
+	bool suc = cv::solvePnP(world, image, intern, distortion, rOut, tOut, false, kind);
 	if (suc) {
 		tVec = tOut;
 		rVec = rOut;
@@ -86,9 +85,79 @@ DllExport(bool) cvSolvePnP(const Point2d* imgPoints, const Point3d* worldPoints,
 	else {
 		return false;
 	}
-
 }
 
+DllExport(bool) cvSolvePnPRansac(const Point2d* imgPoints, const Point3d* worldPoints, const int N, const Matx33d K, const double* distortionCoeffs, const int solverKind, Vec3d& tVec, Vec3d& rVec, int* inlierCount, int* outInliers) {
+	vector<Point2d> image(imgPoints, imgPoints + N);
+	vector<Point3d> world(worldPoints, worldPoints + N);
+	//vector<double> distortion(distortionCoeffs, distortionCoeffs + 6);
+
+	int kind = 0;
+	if (solverKind == 0) {
+		kind = cv::SOLVEPNP_ITERATIVE;
+	}
+	else if (solverKind == 1) {
+		kind = cv::SOLVEPNP_EPNP;
+	}
+	else if (solverKind == 2) {
+		kind = cv::SOLVEPNP_P3P;
+	}
+	else if (solverKind == 3) {
+		kind = cv::SOLVEPNP_DLS;
+	}
+	else if (solverKind == 4) {
+		kind = cv::SOLVEPNP_UPNP;
+	}
+	else if (solverKind == 5) {
+		kind = cv::SOLVEPNP_AP3P;
+	}
+
+	Mat intern(K);
+
+	Mat distortion(1, 4, CV_64F, (void*)distortionCoeffs);
+
+	Vec3d tOut;
+	Vec3d rOut;
+	vector<int> inliers;
+	bool suc = cv::solvePnPRansac(world, image, intern, distortion, rOut, tOut, false, 100, 0.002F, 0.99, inliers, kind);
+	if (suc) {
+		tVec = tOut;
+		rVec = rOut;
+		*inlierCount = inliers.size();
+		for (int i = 0; i < inliers.size(); i++) {
+			outInliers[i] = inliers[i];
+		}
+		return true;
+	}
+	else {
+		*inlierCount = 0;
+		return false;
+	}
+}
+DllExport(void) cvRefinePnPLM(const Point2d* imgPoints, const Point3d* worldPoints, const int N, const Matx33d K, const double* distortionCoeffs, Vec3d& tVec, Vec3d& rVec) {
+	vector<Point2d> image(imgPoints, imgPoints + N);
+	vector<Point3d> world(worldPoints, worldPoints + N);
+	Mat intern(K);
+	Mat distortion(1, 4, CV_64F, (void*)distortionCoeffs);
+	Vec3d tOut = tVec;
+	Vec3d rOut = rVec;
+	cv::solvePnPRefineLM(world, image, intern, distortion, rOut, tOut);
+	tVec = tOut;
+	rVec = rOut;
+	return;
+}
+DllExport(void) cvRefinePnPVVS(const Point2d* imgPoints, const Point3d* worldPoints, const int N, const Matx33d K, const double* distortionCoeffs, Vec3d& tVec, Vec3d& rVec) {
+	vector<Point2d> image(imgPoints, imgPoints + N);
+	vector<Point3d> world(worldPoints, worldPoints + N);
+	Mat intern(K);
+	Mat distortion(1, 4, CV_64F, (void*)distortionCoeffs);
+	Vec3d tOut = tVec;
+	Vec3d rOut = rVec;
+	cv::solvePnPRefineVVS(world, image, intern, distortion, rOut, tOut);
+	tVec = tOut;
+	rVec = rOut;
+	return;
+}
 
 DllExport(bool) cvRecoverPoses(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat1, Matx33d& rMat2, Vec3d& tVec, uint8_t* ms) {
 	
@@ -185,6 +254,18 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 		break;
 	case FEATURE_MODE_BRISK:
 		detector = cv::BRISK::create();
+		break;
+	case FEATURE_MODE_SIFT:
+		detector = cv::SIFT::create();
+		break;
+	case FEATURE_MODE_SURF:
+		detector = xfeatures2d::SURF::create();
+		break;
+	case FEATURE_MODE_MSD:
+		detector = xfeatures2d::MSDDetector::create();
+		break;
+	case FEATURE_MODE_VGG:
+		detector = xfeatures2d::VGG::create();
 		break;
 	default:
 		return nullptr;

@@ -10,6 +10,7 @@
 #include "fivepoint.h"
 #include "ap3p.h"
 #include "aruco_nano.h"
+#include <opencv2/xfeatures2d.hpp>
 
 typedef struct KeyPoint2d_ {
 	cv::Point2f pt;
@@ -44,3 +45,7 @@ typedef struct ArucoMarkerInfo_ {
 #define FEATURE_MODE_AKAZE 1
 #define FEATURE_MODE_ORB 2
 #define FEATURE_MODE_BRISK 3
+#define FEATURE_MODE_SIFT 4
+#define FEATURE_MODE_SURF 5
+#define FEATURE_MODE_MSD 6
+#define FEATURE_MODE_VGG 7

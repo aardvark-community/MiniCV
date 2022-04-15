@@ -30,3 +30,4 @@ src/MiniCVNative/Release
 src/MiniCVNative/build
 /.vcpkg
 /.vscode/*.log
+/libs

@@ -221,6 +221,10 @@ module OpenCV =
         | Akaze = 1
         | Orb = 2
         | Brisk = 3
+        | Sift = 4
+        | Surf = 5
+        | Msd = 6
+        | Vgg = 7
 
 
 
@@ -249,6 +253,15 @@ module OpenCV =
 
         [<DllImport(lib, EntryPoint = "cvSolvePnP"); SuppressUnmanagedCodeSecurity>]
         extern bool cvSolvePnP(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, int solverKind, V3d& t, V3d& r)
+
+        [<DllImport(lib, EntryPoint = "cvSolvePnPRansac"); SuppressUnmanagedCodeSecurity>]
+        extern bool cvSolvePnPRansac(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, int solverKind, V3d& t, V3d& r, int& inlierCount, int[] outInliers)
+        
+        [<DllImport(lib, EntryPoint = "cvRefinePnPLM"); SuppressUnmanagedCodeSecurity>]
+        extern void cvRefinePnPLM(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, V3d& t, V3d& r)
+        
+        [<DllImport(lib, EntryPoint = "cvRefinePnPVVS"); SuppressUnmanagedCodeSecurity>]
+        extern void cvRefinePnPVVS(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, V3d& t, V3d& r)
         
         [<DllImport(lib, EntryPoint = "solveAp3p"); SuppressUnmanagedCodeSecurity>]
         extern int solveAp3p(M33d* Rs, V3d* ts, float mu0, float mv0, float X0, float Y0, float Z0, float mu1, float mv1, float X1, float Y1, float Z1, float mu2, float mv2, float X2, float Y2, float Z2, float inv_fx, float inv_fy, float cx_fx, float cy_fy)
@@ -318,6 +331,9 @@ module OpenCV =
             gc.Free()
 
     let detectFeatures (mode : DetectorMode) (img : PixImage<byte>) =
+        match mode with 
+        | DetectorMode.Surf -> failwith "SURF not implemented (float descriptors)"
+        | _ -> ()
         let img = img.ToCanonicalDenseLayout() |> unbox<PixImage<byte>>
 
         let gc = GCHandle.Alloc(img.Volume.Data, GCHandleType.Pinned)
@@ -735,14 +751,48 @@ module OpenCV =
             Array.take cnt res
         else
             [||]
+            
+    [<Struct>]
+    type RefineResult =
+        {
+            t : V3d
+            r : V3d
+        }
 
+    /// virtual visual servoing https://docs.opencv.org/3.4/d9/d0c/group__calib3d.html#ga17491c0282e4af874f6206a9166774a5
+    let refinePnPVVS (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) (t : V3d) (r : V3d) =
+        let mutable tRes = t
+        let mutable rRes = r
+        Native.cvRefinePnPVVS(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, &tRes, &rRes)
+        let r = rRes
+        let trn = tRes
+        {
+            t = trn
+            r = r
+        }
+
+    let refinePnPLM (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) (t : V3d) (r : V3d) =
+        let mutable tRes = Unchecked.defaultof<_>
+        let mutable rRes = Unchecked.defaultof<_>
+            
+        Native.cvRefinePnPLM(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, &tRes, &rRes)
+        let r = rRes
+        let trn = tRes
+        {
+            t = trn
+            r = r
+        }
+        
+    type RefineKind =
+    | LM
+    | VVS
     type SolverKind =
     | EPNP
     | P3P
     | AP3P
     | Iterative
     
-    let solvePnP (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+    let solvePnPInternal (solver : SolverKind) (refinement : Option<RefineKind>) (ransac : bool) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
         if imgPoints.Length <> worldPoints.Length then
             None
         else
@@ -755,10 +805,31 @@ module OpenCV =
         
             let mutable tRes = Unchecked.defaultof<_>
             let mutable rRes = Unchecked.defaultof<_>
+            let mutable inlierCount = 0
             
-            if Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes) then
+            let mutable icnt = 0
+            let mutable inliers = null
+
+            let converged = 
+                if ransac then 
+                    inliers <- Array.zeroCreate imgPoints.Length
+                    Native.cvSolvePnPRansac(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes, &icnt, inliers)
+                    
+                else Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes)
+            if converged then
                 let r = rRes
                 let t = tRes
+
+                
+                let inlierImgPoints   = if isNull inliers then imgPoints else Array.init icnt (fun i -> let i = inliers.[i] in imgPoints.[i])
+                let inlierWorldPoints = if isNull inliers then worldPoints else Array.init icnt (fun i -> let i = inliers.[i] in worldPoints.[i])
+                    
+                let t,r = 
+                    match refinement with 
+                    | Some LM ->  let {t=t;r=r} = refinePnPLM  inlierImgPoints inlierWorldPoints intern distortionCoeffs t r in t,r
+                    | Some VVS -> let {t=t;r=r} = refinePnPVVS inlierImgPoints inlierWorldPoints intern distortionCoeffs t r in t,r
+                    | None -> t,r
+
                 let ang = r.Length
                 let axs = r.Normalized
                 let rotOrig = Rot3d.Rotation(axs,ang)
@@ -783,3 +854,15 @@ module OpenCV =
                 Some e
             else
                 None
+    
+    let solvePnP (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+        solvePnPInternal solver None false imgPoints worldPoints intern distortionCoeffs
+    
+    let solvePnPWithRefine (solver : SolverKind) (refine : RefineKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+        solvePnPInternal solver (Some refine) false imgPoints worldPoints intern distortionCoeffs
+
+    let solvePnPRansac (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+        solvePnPInternal solver None true imgPoints worldPoints intern distortionCoeffs
+    
+    let solvePnPRansacWithRefine (solver : SolverKind) (refine : RefineKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+        solvePnPInternal solver (Some refine) true imgPoints worldPoints intern distortionCoeffs
