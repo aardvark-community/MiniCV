@@ -26,7 +26,7 @@ endif()
 add_library(MiniCVNative SHARED MiniCVNative.h MiniCVNative.cpp ap3p.h ap3p.cpp aruco_nano.h fivepoint.h fivepoint.cpp)
 
 # include_directories(~/vcpkg/packages/ceres_arm64-osx/include)
-target_link_libraries(MiniCVNative PRIVATE opencv_ml libprotobuf opencv_core opencv_videoio opencv_calib3d opencv_features2d opencv_objdetect opencv_xfeatures2d)
+target_link_libraries(MiniCVNative PRIVATE opencv_ml libprotobuf opencv_core opencv_videoio opencv_calib3d opencv_features2d opencv_objdetect)
 
 SET(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/../../libs/Native/MiniCV/") 
 install(TARGETS MiniCVNative DESTINATION ${OS}/${ARCH})

@@ -222,9 +222,6 @@ module OpenCV =
         | Orb = 2
         | Brisk = 3
         | Sift = 4
-        | Surf = 5
-        | Msd = 6
-        | Vgg = 7
 
 
 
@@ -331,9 +328,6 @@ module OpenCV =
             gc.Free()
 
     let detectFeatures (mode : DetectorMode) (img : PixImage<byte>) =
-        match mode with 
-        | DetectorMode.Surf -> failwith "SURF not implemented (float descriptors)"
-        | _ -> ()
         let img = img.ToCanonicalDenseLayout() |> unbox<PixImage<byte>>
 
         let gc = GCHandle.Alloc(img.Volume.Data, GCHandleType.Pinned)

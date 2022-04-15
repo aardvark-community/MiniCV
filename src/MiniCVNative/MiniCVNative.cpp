@@ -258,15 +258,6 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 	case FEATURE_MODE_SIFT:
 		detector = cv::SIFT::create();
 		break;
-	case FEATURE_MODE_SURF:
-		detector = xfeatures2d::SURF::create();
-		break;
-	case FEATURE_MODE_MSD:
-		detector = xfeatures2d::MSDDetector::create();
-		break;
-	case FEATURE_MODE_VGG:
-		detector = xfeatures2d::VGG::create();
-		break;
 	default:
 		return nullptr;
 	}
