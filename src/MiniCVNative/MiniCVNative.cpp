@@ -70,7 +70,7 @@ DllExport(bool) cvSolvePnP(const Point2d* imgPoints, const Point3d* worldPoints,
 		kind = cv::SOLVEPNP_AP3P;
 	}
 	else if(solverKind == 6) {
-		kind = cv.SOLVEPNP_SQPNP;
+		kind = cv::SOLVEPNP_SQPNP;
 	}
 
 	Mat intern(K);
