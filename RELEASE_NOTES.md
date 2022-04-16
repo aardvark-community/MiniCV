@@ -1,3 +1,6 @@
+### 1.1.10
+* added SQPNP solver kind
+
 ### 1.1.9
 * Added SURF, SIFT etc.
 * added SolvePnPRansac & Refine

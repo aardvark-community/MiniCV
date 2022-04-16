@@ -785,6 +785,7 @@ module OpenCV =
     | P3P
     | AP3P
     | Iterative
+    | SQPNP
     
     let solvePnPInternal (solver : SolverKind) (refinement : Option<RefineKind>) (ransac : bool) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
         if imgPoints.Length <> worldPoints.Length then
@@ -796,6 +797,7 @@ module OpenCV =
                 | EPNP -> 1
                 | P3P -> 2
                 | AP3P -> 5
+                | SQPNP -> 6
         
             let mutable tRes = Unchecked.defaultof<_>
             let mutable rRes = Unchecked.defaultof<_>
