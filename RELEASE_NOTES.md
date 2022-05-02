@@ -1,3 +1,6 @@
+### 1.1.11
+* fixed feature descriptors for float/other types
+
 ### 1.1.10
 * added SQPNP solver kind 
 

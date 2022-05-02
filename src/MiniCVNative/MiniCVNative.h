@@ -23,6 +23,7 @@ typedef struct KeyPoint2d_ {
 typedef struct DetectorResult_ {
 	int PointCount;
 	int DescriptorEntries;
+	int DescriptorElementType;
 	KeyPoint2d* Points;
 	uchar* Descriptors;
 } DetectorResult;

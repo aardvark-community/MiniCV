@@ -63,12 +63,21 @@ let main argv =
         use ms = new MemoryStream(data)
         PixImageSharp.Create(ms).ToPixImage<byte>(Col.Format.RGBA)
 
-    let ftrs = MiniCV.OpenCV.detectFeatures MiniCV.OpenCV.DetectorMode.Akaze img
-    printfn "%A" ftrs.points.Length
+    printfn "SIFT"
+    let ftrs = MiniCV.OpenCV.detectFeatures MiniCV.OpenCV.DetectorMode.Sift img
+    printfn "  count: %A" ftrs.points.Length
     if ftrs.points.Length > 0 then 
-        let d = ftrs.descriptors.[0]
         let p = ftrs.points.[0]
-        printfn "%A" ftrs.descriptorDimension
-        printfn "%A" d
-        printfn "%A" p
+        printfn "  dim:           %A" ftrs.descriptorDimension
+        printfn "  descriptor[0]: %0A" p.Descriptor
+        printfn "  point:         %A" p
+        
+    printfn "AKAZE"
+    let ftrs = MiniCV.OpenCV.detectFeatures MiniCV.OpenCV.DetectorMode.Akaze img
+    printfn "  count: %A" ftrs.points.Length
+    if ftrs.points.Length > 0 then 
+        let p = ftrs.points.[0]
+        printfn "  dim:           %A" ftrs.descriptorDimension
+        printfn "  descriptor[0]: %0A" p.Descriptor
+        printfn "  point:         %A" p
     0 // return an integer exit code

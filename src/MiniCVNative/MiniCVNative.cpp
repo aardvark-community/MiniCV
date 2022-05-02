@@ -197,7 +197,7 @@ DllExport(bool) cvRecoverPoses(const RecoverPoseConfig* config, const int N, con
 DllExport(int) cvRecoverPose(const RecoverPoseConfig* config, const int N, const Point2d* pa, const Point2d* pb, Matx33d& rMat, Vec3d& tVec, uint8_t* ms) {
 	vector<Point2d> a(pa, pa + N);
 	vector<Point2d> b(pb, pb + N);
-
+	
 	Mat E;
 	Mat mask;
 
@@ -219,7 +219,7 @@ void cvCornerSubPix(const cv::Mat img, const vector<Vec2d> corners) {
 }
 
 DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, int channels, int mode = FEATURE_MODE_AKAZE) {
-
+	
 	int fmt;
 	int convert;
 	switch (channels)
@@ -247,6 +247,7 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 	
 	Mat input(height, width, fmt, (void*)data);
 	cv::Ptr<cv::FeatureDetector> detector;
+
 	switch (mode)
 	{
 	case FEATURE_MODE_AKAZE:
@@ -288,9 +289,9 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 	}
 	else
 	{
-
+		auto elemSize = descriptorsM.elemSize();
 		auto points1 = new KeyPoint2d[points.size()];
-		auto descriptors1 = new uchar[descriptorCount];
+		auto descriptors1 = new uchar[descriptorCount * elemSize];
 
 		for (int i = 0; i < points.size(); i++)
 		{
@@ -301,16 +302,15 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 			points1[i].response = points[i].response;
 			points1[i].size = points[i].size;
 		}
-		if (descriptorsM.elemSize() != 1)
-		{
-			printf("BAD DESCRIPTORS\n");
-		}
-		memcpy(descriptors1, descriptorsM.data, descriptorCount);
+
+	
+		memcpy(descriptors1, descriptorsM.data, descriptorCount * elemSize);
 		
 		detector->clear();
 		img.release();
 
 		auto res = new DetectorResult();
+		res->DescriptorElementType = descriptorsM.type();
 		res->PointCount = (int)points.size();
 		res->DescriptorEntries = (int)descriptorCount;
 		res->Points = points1;

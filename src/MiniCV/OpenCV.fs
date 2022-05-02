@@ -36,7 +36,7 @@ type RecoverPoseConfig  =
     end
 
 [<Struct>]
-type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : float, octave : int, descriptorDimension : int, descriptors : uint8[]) =
+type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : float, octave : int, descriptorDimension : int, descriptorType : Type, descriptors : System.Array) =
     member x.Index = index
     member x.Position = pos
     member x.Size = size
@@ -45,8 +45,9 @@ type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : fl
     member x.Octave = int
 
     member x.Descriptor =
-        let fst = int64 descriptorDimension * int64 index
-        Vector<uint8>(descriptors, fst, int64 descriptorDimension, 1L)
+        let res = System.Array.CreateInstance (descriptorType, descriptorDimension)
+        System.Array.Copy(descriptors, descriptorDimension * index, res, 0, descriptorDimension)
+        res
         
     override x.ToString() =
         sprintf "{ pos = %A; size = %A; angle = %A }" pos size angle
@@ -54,7 +55,7 @@ type KeyPoint(index : int, pos : V2d, size : float, angle : float, response : fl
 type ImageFeatures =
     {
         points                  : KeyPoint[]
-        descriptors             : uint8[]
+        descriptors             : System.Array
         descriptorDimension     : int
     }
 
@@ -169,26 +170,6 @@ module ImageFeatures =
         else
             current
 
-    let matches (l : ImageFeatures) (r : ImageFeatures) =
-        let rf = r.points |> Array.map (fun pt -> pt.Descriptor)
-        let perm = Array.init rf.Length id
-        pointKdTree perm rf 0 rf.Length 0
-
-        let sub (l : byte) (r : byte) =
-            (float l - float r) / 255.0
-
-        l.points |> Array.choosei (fun li lf ->
-            let closest = nearest ClosestPoints.empty 2 Double.PositiveInfinity sub perm rf 0 rf.Length 0 lf.Descriptor
-            let closest = 
-                closest.matches 
-                    |> MapExt.toSeq 
-                    |> Seq.collect (fun (d,s) -> s |> Seq.map (fun ri -> li, ri, d)) 
-                    |> Seq.atMost 2
-                    |> Seq.toList
-            match closest with
-                | [] -> None
-                | c -> Some c
-        )
 
 
 
@@ -208,11 +189,30 @@ module OpenCV =
 
         end
 
+// #define CV_8U   0
+// #define CV_8S   1
+// #define CV_16U  2
+// #define CV_16S  3
+// #define CV_32S  4
+// #define CV_32F  5
+// #define CV_64F  6
+// #define CV_16F  7
+    type ElementType =
+        | UInt8 = 0
+        | Int8 = 1
+        | UInt16 = 2
+        | Int16 = 3
+        | Int32 = 4
+        | Float = 5
+        | Double = 6
+        | Half = 7
+
     [<StructLayout(LayoutKind.Sequential)>]
     type DetectorResult =
         struct
             val mutable public PointCount : int
             val mutable public DescriptorEntries : int
+            val mutable public DescriptorElementType : ElementType
             val mutable public Points : nativeptr<KeyPoint2d>
             val mutable public Descriptors : nativeptr<uint8>
         end
@@ -339,24 +339,61 @@ module OpenCV =
             if v.PointCount = 0 then
                 {
                     points                  = [||]
-                    descriptors             = [||]
+                    descriptors             = Array.empty<byte>
                     descriptorDimension     = 61
                 }
             else
                 let pts : KeyPoint2d[] = Array.zeroCreate v.PointCount
-                let descriptors : uint8[] = Array.zeroCreate v.DescriptorEntries
-
                 copy v.Points pts pts.Length
-                copy v.Descriptors descriptors descriptors.Length
+                let mutable typ = null
+                let descriptors =
+                    match v.DescriptorElementType with
+                    | ElementType.Float ->
+                        typ <- typeof<float32>
+                        let descriptors : float32[] = Array.zeroCreate v.DescriptorEntries
+                        copy (NativePtr.cast v.Descriptors) descriptors descriptors.Length
+                        descriptors :> System.Array
+                    | ElementType.Double ->
+                        typ <- typeof<float>
+                        let descriptors : float[] = Array.zeroCreate v.DescriptorEntries
+                        copy (NativePtr.cast v.Descriptors) descriptors descriptors.Length
+                        descriptors :> System.Array
+                    | ElementType.Int8 ->
+                        typ <- typeof<int8>
+                        let descriptors : int8[] = Array.zeroCreate v.DescriptorEntries
+                        copy (NativePtr.cast v.Descriptors) descriptors descriptors.Length
+                        descriptors :> System.Array
+                    | ElementType.UInt8 ->
+                        typ <- typeof<uint8>
+                        let descriptors : uint8[] = Array.zeroCreate v.DescriptorEntries
+                        copy v.Descriptors descriptors descriptors.Length
+                        descriptors :> System.Array
+                    | ElementType.UInt16 ->
+                        typ <- typeof<uint16>
+                        let descriptors : uint16[] = Array.zeroCreate v.DescriptorEntries
+                        copy (NativePtr.cast v.Descriptors) descriptors descriptors.Length
+                        descriptors :> System.Array
+                    | ElementType.Int16 ->
+                        typ <- typeof<int16>
+                        let descriptors : int16[] = Array.zeroCreate v.DescriptorEntries
+                        copy (NativePtr.cast v.Descriptors) descriptors descriptors.Length
+                        descriptors :> System.Array
+                    | ElementType.Int32 ->
+                        typ <- typeof<int>
+                        let descriptors : int[] = Array.zeroCreate v.DescriptorEntries
+                        copy (NativePtr.cast v.Descriptors) descriptors descriptors.Length
+                        descriptors :> System.Array
+                    | t ->
+                        failwithf "bad descriptor type: %A" t
 
                 let dim = descriptors.Length / pts.Length
-
-                let points = pts |> Array.mapi (fun i pt -> KeyPoint(i, V2d pt.pt, float pt.size, float pt.angle, float pt.response, pt.octave, dim, descriptors))
+                let points = pts |> Array.mapi (fun i pt -> KeyPoint(i, V2d pt.pt, float pt.size, float pt.angle, float pt.response, pt.octave, dim, typ, descriptors))
                 {
                     points                  = points
                     descriptors             = descriptors
                     descriptorDimension     = dim
                 }
+
         finally
             Native.cvFreeFeatures_ ptr
             gc.Free()
