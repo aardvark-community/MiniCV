@@ -1,3 +1,6 @@
+### 1.1.12
+* solvePnPRansac returns inliers
+
 ### 1.1.11
 * fixed feature descriptors for float/other types
 

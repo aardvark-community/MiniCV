@@ -26,9 +26,9 @@ let testPnp() =
     let resPnP                = OpenCV.solvePnP OpenCV.SolverKind.EPNP img pts intern (Array.zeroCreate 20) 
     let resPnPRefineLM        = OpenCV.solvePnPWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.LM img pts intern (Array.zeroCreate 20) 
     let resPnPRefineVVS       = OpenCV.solvePnPWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.VVS img pts intern (Array.zeroCreate 20) 
-    let resPnPRansac          = OpenCV.solvePnPRansac OpenCV.SolverKind.EPNP img pts intern (Array.zeroCreate 20)
-    let resPnPRansacRefineLM  = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.LM img pts intern (Array.zeroCreate 20)
-    let resPnPRansacRefineVVS = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.VVS img pts intern (Array.zeroCreate 20)
+    let resPnPRansac          = OpenCV.solvePnPRansac OpenCV.SolverKind.EPNP img pts intern (Array.zeroCreate 20) |> Option.map fst
+    let resPnPRansacRefineLM  = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.LM img pts intern (Array.zeroCreate 20) |> Option.map fst
+    let resPnPRansacRefineVVS = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.VVS img pts intern (Array.zeroCreate 20) |> Option.map fst
     
     let rot = Rot3d.RotationX(Constant.Pi)
     let getCam (s : Euclidean3d) = {view={trafo=rot*s};proj=realCam.proj}

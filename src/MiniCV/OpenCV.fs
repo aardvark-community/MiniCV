@@ -884,15 +884,17 @@ module OpenCV =
                         
                 let e = Euclidean3d(rot,trn)
                 
-                Some e
+                Some (e,inliers)
             else
                 None
     
     let solvePnP (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
         solvePnPInternal solver None false imgPoints worldPoints intern distortionCoeffs
+        |> Option.map (fun (e,inl) -> e)
     
     let solvePnPWithRefine (solver : SolverKind) (refine : RefineKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
         solvePnPInternal solver (Some refine) false imgPoints worldPoints intern distortionCoeffs
+        |> Option.map (fun (e,inl) -> e)
 
     let solvePnPRansac (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
         solvePnPInternal solver None true imgPoints worldPoints intern distortionCoeffs
