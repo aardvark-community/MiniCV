@@ -1,3 +1,6 @@
+### 1.1.13
+* solvePnPRansac params exposed
+
 ### 1.1.12
 * solvePnPRansac returns inliers
 
