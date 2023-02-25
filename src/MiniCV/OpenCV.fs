@@ -252,7 +252,7 @@ module OpenCV =
         extern bool cvSolvePnP(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, int solverKind, V3d& t, V3d& r)
 
         [<DllImport(lib, EntryPoint = "cvSolvePnPRansac"); SuppressUnmanagedCodeSecurity>]
-        extern bool cvSolvePnPRansac(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, int solverKind, V3d& t, V3d& r, int& inlierCount, int[] outInliers)
+        extern bool cvSolvePnPRansac(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, int solverKind, int iterationsCount, float32 reprojectionError, float confidence, V3d& t, V3d& r, int& inlierCount, int[] outInliers)
         
         [<DllImport(lib, EntryPoint = "cvRefinePnPLM"); SuppressUnmanagedCodeSecurity>]
         extern void cvRefinePnPLM(V2d[] imgPoints, V3d[] worldPoints, int N, M33d intern, float[] distortion, V3d& t, V3d& r)
@@ -823,8 +823,21 @@ module OpenCV =
     | AP3P
     | Iterative
     | SQPNP
+    type RansacParams =
+        {
+            reprojectionError : float32
+            iterationsCount : int
+            confidence : float
+        }
+        with 
+            static member MaxReprojError (e : float) = 
+                {
+                    reprojectionError = float32 e
+                    iterationsCount = 100
+                    confidence = 0.99
+                }
     
-    let solvePnPInternal (solver : SolverKind) (refinement : Option<RefineKind>) (ransac : bool) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+    let solvePnPInternal (solver : SolverKind) (refinement : Option<RefineKind>) (ransac : Option<RansacParams>) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
         if imgPoints.Length <> worldPoints.Length then
             None
         else
@@ -844,11 +857,11 @@ module OpenCV =
             let mutable inliers = null
 
             let converged = 
-                if ransac then 
+                match ransac with 
+                | Some {reprojectionError = reproj; iterationsCount = iter; confidence = confidence} -> 
                     inliers <- Array.zeroCreate imgPoints.Length
-                    Native.cvSolvePnPRansac(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes, &icnt, inliers)
-                    
-                else Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes)
+                    Native.cvSolvePnPRansac(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, iter, reproj, confidence, &tRes, &rRes, &icnt, inliers)
+                | None -> Native.cvSolvePnP(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, kind, &tRes, &rRes)
             if converged then
                 let r = rRes
                 let t = tRes
@@ -889,15 +902,15 @@ module OpenCV =
                 None
     
     let solvePnP (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
-        solvePnPInternal solver None false imgPoints worldPoints intern distortionCoeffs
+        solvePnPInternal solver None None imgPoints worldPoints intern distortionCoeffs
         |> Option.map (fun (e,inl) -> e)
     
     let solvePnPWithRefine (solver : SolverKind) (refine : RefineKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
-        solvePnPInternal solver (Some refine) false imgPoints worldPoints intern distortionCoeffs
+        solvePnPInternal solver (Some refine) None imgPoints worldPoints intern distortionCoeffs
         |> Option.map (fun (e,inl) -> e)
 
-    let solvePnPRansac (solver : SolverKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
-        solvePnPInternal solver None true imgPoints worldPoints intern distortionCoeffs
+    let solvePnPRansac (solver : SolverKind) (cfg : RansacParams) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+        solvePnPInternal solver None (Some cfg) imgPoints worldPoints intern distortionCoeffs
     
-    let solvePnPRansacWithRefine (solver : SolverKind) (refine : RefineKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
-        solvePnPInternal solver (Some refine) true imgPoints worldPoints intern distortionCoeffs
+    let solvePnPRansacWithRefine (solver : SolverKind) (cfg : RansacParams) (refine : RefineKind) (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) =
+        solvePnPInternal solver (Some refine)  (Some cfg) imgPoints worldPoints intern distortionCoeffs

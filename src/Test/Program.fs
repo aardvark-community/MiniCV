@@ -23,12 +23,13 @@ let testPnp() =
     let intern = (Projection.toTrafo realCam.proj).Forward
     let img = obs |> Array.map (fun i -> V2d(i.X, -i.Y))
     
+    let ransacCfg = OpenCV.RansacParams.MaxReprojError 0.002
     let resPnP                = OpenCV.solvePnP OpenCV.SolverKind.EPNP img pts intern (Array.zeroCreate 20) 
     let resPnPRefineLM        = OpenCV.solvePnPWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.LM img pts intern (Array.zeroCreate 20) 
     let resPnPRefineVVS       = OpenCV.solvePnPWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.VVS img pts intern (Array.zeroCreate 20) 
-    let resPnPRansac          = OpenCV.solvePnPRansac OpenCV.SolverKind.EPNP img pts intern (Array.zeroCreate 20) |> Option.map fst
-    let resPnPRansacRefineLM  = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.LM img pts intern (Array.zeroCreate 20) |> Option.map fst
-    let resPnPRansacRefineVVS = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP OpenCV.RefineKind.VVS img pts intern (Array.zeroCreate 20) |> Option.map fst
+    let resPnPRansac          = OpenCV.solvePnPRansac OpenCV.SolverKind.EPNP ransacCfg img pts intern (Array.zeroCreate 20) |> Option.map fst
+    let resPnPRansacRefineLM  = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP ransacCfg OpenCV.RefineKind.LM img pts intern (Array.zeroCreate 20) |> Option.map fst
+    let resPnPRansacRefineVVS = OpenCV.solvePnPRansacWithRefine OpenCV.SolverKind.EPNP ransacCfg OpenCV.RefineKind.VVS img pts intern (Array.zeroCreate 20) |> Option.map fst
     
     let rot = Rot3d.RotationX(Constant.Pi)
     let getCam (s : Euclidean3d) = {view={trafo=rot*s};proj=realCam.proj}
@@ -56,6 +57,8 @@ let testPnp() =
 [<EntryPoint>]
 let main argv =
     Aardvark.Init()
+    testPnp()
+    exit 0
 
     use c = new HttpClient()
     let data = c.GetByteArrayAsync("https://images.pexels.com/photos/245535/pexels-photo-245535.jpeg?cs=srgb&dl=pexels-snapwire-245535.jpg&fm=jpg").Result

@@ -90,7 +90,7 @@ DllExport(bool) cvSolvePnP(const Point2d* imgPoints, const Point3d* worldPoints,
 	}
 }
 
-DllExport(bool) cvSolvePnPRansac(const Point2d* imgPoints, const Point3d* worldPoints, const int N, const Matx33d K, const double* distortionCoeffs, const int solverKind, Vec3d& tVec, Vec3d& rVec, int* inlierCount, int* outInliers) {
+DllExport(bool) cvSolvePnPRansac(const Point2d* imgPoints, const Point3d* worldPoints, const int N, const Matx33d K, const double* distortionCoeffs, const int solverKind, const int iterationsCount, const float reprojectionError, const double confidence, Vec3d& tVec, Vec3d& rVec, int* inlierCount, int* outInliers) {
 	vector<Point2d> image(imgPoints, imgPoints + N);
 	vector<Point3d> world(worldPoints, worldPoints + N);
 	//vector<double> distortion(distortionCoeffs, distortionCoeffs + 6);
@@ -122,7 +122,7 @@ DllExport(bool) cvSolvePnPRansac(const Point2d* imgPoints, const Point3d* worldP
 	Vec3d tOut;
 	Vec3d rOut;
 	vector<int> inliers;
-	bool suc = cv::solvePnPRansac(world, image, intern, distortion, rOut, tOut, false, 100, 0.002F, 0.99, inliers, kind);
+	bool suc = cv::solvePnPRansac(world, image, intern, distortion, rOut, tOut, false, iterationsCount, reprojectionError, confidence, inliers, kind);
 	if (suc) {
 		tVec = tOut;
 		rVec = rOut;

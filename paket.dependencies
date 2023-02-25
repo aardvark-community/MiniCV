@@ -6,4 +6,6 @@ nuget FSharp.Core >= 5.0.0 lowest_matching: true
 nuget Aardvark.Base ~> 5.2.0
 nuget Aardvark.Base.FSharp ~> 5.2.0
 nuget Aardvark.Base.Tensors ~> 5.2.0
-nuget Aardvark.Build ~> 1.0.11
+nuget Aardvark.Build ~> 1.0.18
+
+nuget System.Collections.Immutable ~> 6.0.0
