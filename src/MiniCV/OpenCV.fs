@@ -172,6 +172,127 @@ module ImageFeatures =
 
 
 
+type AkazeDescriptorType =
+    | Upright = 2
+    | Kaze = 3
+    | MldbUprigth = 4
+    | Mldb = 5
+
+type AkazeDiffusivityType =
+    | PmG1 = 0
+    | PmG2 = 1
+    | Weickert = 2
+    | Charbonnier = 3
+
+type OrbScoreType =
+    | Harris = 0
+    | Fast = 1
+
+type SiftDescriptorType =
+    | Byte = 0
+    | Float = 5
+
+
+[<Struct; StructLayout(LayoutKind.Sequential)>]
+type AkazeConfig =
+    {
+        DescriptorType      : AkazeDescriptorType
+        DescriptorSize      : int
+        DescriptorChannels  : int
+        Threshold           : float32
+        Octaves             : int
+        OctaveLayers        : int
+        Diffusivity         : AkazeDiffusivityType
+    }
+
+    static member Default =
+        {
+            DescriptorType      = AkazeDescriptorType.Mldb
+            DescriptorSize      = 0
+            DescriptorChannels  = 3
+            Threshold           = 0.001f
+            Octaves             = 4
+            OctaveLayers        = 4
+            Diffusivity         = AkazeDiffusivityType.PmG2
+        }
+
+
+[<Struct; StructLayout(LayoutKind.Sequential)>]
+type OrbConfig =
+    {
+        FeatureCount        : int
+        ScaleFactor         : float32
+        Levels              : int
+        EdgeThreshold       : int
+        FirstLevel          : int
+        WTA_K               : int
+        ScoreType           : OrbScoreType
+        PatchSize           : int
+        FastThreshold       : int
+    }
+
+    static member Default =
+        {
+            FeatureCount        = 500
+            ScaleFactor         = 1.2f
+            Levels              = 8
+            EdgeThreshold       = 31
+            FirstLevel          = 0
+            WTA_K               = 2
+            ScoreType           = OrbScoreType.Harris
+            PatchSize           = 31
+            FastThreshold       = 20
+        }
+
+[<Struct; StructLayout(LayoutKind.Sequential)>]
+type BriskConfig =
+    {
+        Threshold           : int
+        Octaves             : int
+        PatternScale        : float32
+    }
+
+    static member Default =
+        {
+            Threshold           = 30
+            Octaves             = 3
+            PatternScale        = 1.0f
+        }
+
+[<Struct; StructLayout(LayoutKind.Sequential)>]
+type SiftConfig =
+    {
+        FeatureCount        : int
+        OctaveLayers        : int
+        ContrastThreshold   : float
+        EdgeThreshold       : float
+        Sigma               : float
+        DescriptorType      : SiftDescriptorType
+    }
+
+    static member Default =
+        {
+            FeatureCount        = 0
+            OctaveLayers        = 3
+            ContrastThreshold   = 0.04
+            EdgeThreshold       = 10.0
+            Sigma               = 1.6
+            DescriptorType      = SiftDescriptorType.Byte
+        }
+
+
+[<RequireQualifiedAccess>]
+type DetectorMode =
+    | Akaze
+    | Orb
+    | Brisk
+    | Sift
+    | AkazeConfig of AkazeConfig
+    | OrbConfig of OrbConfig
+    | BriskConfig of BriskConfig
+    | SiftConfig of SiftConfig
+
+
 
 
 module OpenCV =
@@ -189,14 +310,12 @@ module OpenCV =
 
         end
 
-// #define CV_8U   0
-// #define CV_8S   1
-// #define CV_16U  2
-// #define CV_16S  3
-// #define CV_32S  4
-// #define CV_32F  5
-// #define CV_64F  6
-// #define CV_16F  7
+    type NativeDetectorMode =
+        | Akaze = 1
+        | Orb = 2
+        | Brisk = 3
+        | Sift = 4
+
     type ElementType =
         | UInt8 = 0
         | Int8 = 1
@@ -217,16 +336,7 @@ module OpenCV =
             val mutable public Descriptors : nativeptr<uint8>
         end
 
-    type DetectorMode =
-        | Akaze = 1
-        | Orb = 2
-        | Brisk = 3
-        | Sift = 4
-
-
-
     module Native =
-
         [<Literal>]
         let lib = @"MiniCVNative"
         
@@ -237,7 +347,7 @@ module OpenCV =
         extern bool cvRecoverPoses_(RecoverPoseConfig* cfg, int N, V2d[] pa, V2d[] pb, M33d& rMat1, M33d& rMat2, V3d& tVec, byte[] ms)
         
         [<DllImport(lib, EntryPoint = "cvDetectFeatures"); SuppressUnmanagedCodeSecurity>]
-        extern DetectorResult* cvDetectFeatures_(byte* data, int width, int height, int channels, DetectorMode mode)
+        extern DetectorResult* cvDetectFeatures_(byte* data, int width, int height, int channels, NativeDetectorMode mode, nativeint cfg)
         
         [<DllImport(lib, EntryPoint = "cvFreeFeatures"); SuppressUnmanagedCodeSecurity>]
         extern void cvFreeFeatures_(DetectorResult* res)
@@ -330,10 +440,35 @@ module OpenCV =
     let detectFeatures (mode : DetectorMode) (img : PixImage<byte>) =
         let img = img.ToCanonicalDenseLayout() |> unbox<PixImage<byte>>
 
+        let nativeMode =
+            match mode with
+            | DetectorMode.Sift | DetectorMode.SiftConfig _ -> NativeDetectorMode.Sift
+            | DetectorMode.Akaze | DetectorMode.AkazeConfig _ -> NativeDetectorMode.Akaze
+            | DetectorMode.Orb | DetectorMode.OrbConfig _ -> NativeDetectorMode.Orb
+            | DetectorMode.Brisk | DetectorMode.BriskConfig _ -> NativeDetectorMode.Brisk
+
+
+        let mutable cfg = Unchecked.defaultof<GCHandle>
         let gc = GCHandle.Alloc(img.Volume.Data, GCHandleType.Pinned)
         let mutable ptr = NativePtr.zero
         try
-            ptr <- Native.cvDetectFeatures_(NativePtr.ofNativeInt (gc.AddrOfPinnedObject()), img.Size.X, img.Size.Y, img.ChannelCount, mode)
+            let configArr = 
+                match mode with
+                | DetectorMode.SiftConfig cfg -> [|cfg|] :> System.Array
+                | DetectorMode.AkazeConfig cfg -> [|cfg|] :> System.Array
+                | DetectorMode.OrbConfig cfg -> [|cfg|] :> System.Array
+                | DetectorMode.BriskConfig cfg -> [|cfg|] :> System.Array
+                | _ -> null
+
+            let cfgPtr = 
+                if not (isNull configArr) then
+                    cfg <- GCHandle.Alloc(configArr, GCHandleType.Pinned)
+                    cfg.AddrOfPinnedObject()
+                else
+                    0n
+            
+
+            ptr <- Native.cvDetectFeatures_(NativePtr.ofNativeInt (gc.AddrOfPinnedObject()), img.Size.X, img.Size.Y, img.ChannelCount, nativeMode, cfgPtr)
             let v = NativePtr.read ptr
             
             if v.PointCount = 0 then
@@ -395,6 +530,7 @@ module OpenCV =
                 }
 
         finally
+            if cfg.IsAllocated then cfg.Free()
             Native.cvFreeFeatures_ ptr
             gc.Free()
 

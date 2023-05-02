@@ -57,8 +57,8 @@ let testPnp() =
 [<EntryPoint>]
 let main argv =
     Aardvark.Init()
-    testPnp()
-    exit 0
+    // testPnp()
+    // exit 0
 
     use c = new HttpClient()
     let data = c.GetByteArrayAsync("https://images.pexels.com/photos/245535/pexels-photo-245535.jpeg?cs=srgb&dl=pexels-snapwire-245535.jpg&fm=jpg").Result
@@ -66,21 +66,32 @@ let main argv =
         use ms = new MemoryStream(data)
         PixImageSharp.Create(ms).ToPixImage<byte>(Col.Format.RGBA)
 
-    printfn "SIFT"
-    let ftrs = MiniCV.OpenCV.detectFeatures MiniCV.OpenCV.DetectorMode.Sift img
-    printfn "  count: %A" ftrs.points.Length
-    if ftrs.points.Length > 0 then 
-        let p = ftrs.points.[0]
-        printfn "  dim:           %A" ftrs.descriptorDimension
-        printfn "  descriptor[0]: %0A" p.Descriptor
-        printfn "  point:         %A" p
+    let modes =
+        [
+            "akaze", DetectorMode.Akaze, DetectorMode.AkazeConfig AkazeConfig.Default
+            "sift", DetectorMode.Sift, DetectorMode.SiftConfig SiftConfig.Default
+            "brisk", DetectorMode.Brisk, DetectorMode.BriskConfig BriskConfig.Default
+            "orb", DetectorMode.Orb, DetectorMode.OrbConfig OrbConfig.Default
+            
+        ]
+    
+    for name, m0, m1 in modes do
         
-    printfn "AKAZE"
-    let ftrs = MiniCV.OpenCV.detectFeatures MiniCV.OpenCV.DetectorMode.Akaze img
-    printfn "  count: %A" ftrs.points.Length
-    if ftrs.points.Length > 0 then 
-        let p = ftrs.points.[0]
-        printfn "  dim:           %A" ftrs.descriptorDimension
-        printfn "  descriptor[0]: %0A" p.Descriptor
-        printfn "  point:         %A" p
+        printfn "%s" name
+        let ftrs = MiniCV.OpenCV.detectFeatures m0 img
+        printfn "  count: %A" ftrs.points.Length
+        if ftrs.points.Length > 0 then 
+            let p = ftrs.points.[0]
+            printfn "  dim:           %A" ftrs.descriptorDimension
+            printfn "  descriptor:    %A" (p.Descriptor.GetType().GetElementType())
+            printfn "  point:         %A" p
+            
+        printfn "%s (default config)" name
+        let ftrs = MiniCV.OpenCV.detectFeatures m1 img
+        printfn "  count: %A" ftrs.points.Length
+        if ftrs.points.Length > 0 then 
+            let p = ftrs.points.[0]
+            printfn "  dim:           %A" ftrs.descriptorDimension
+            printfn "  descriptor:    %A" (p.Descriptor.GetType().GetElementType())
+            printfn "  point:         %A" p
     0 // return an integer exit code

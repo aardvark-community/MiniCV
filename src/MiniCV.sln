@@ -6,6 +6,12 @@ Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "MiniCV", "MiniCV\MiniCV.fsp
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Test", "Test\Test.fsproj", "{EED504F6-30CB-407E-8B85-054D9C508DD6}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{A8619B00-698E-498D-8172-484E21AE70A9}"
+	ProjectSection(SolutionItems) = preProject
+		..\paket.dependencies = ..\paket.dependencies
+		..\RELEASE_NOTES.md = ..\RELEASE_NOTES.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

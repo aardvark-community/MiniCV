@@ -16,5 +16,9 @@
         ".vscode/*.log": true,
         ".paket": true,
         ".ionide": true,
+    },
+    "files.associations": {
+        "queue": "cpp",
+        "stack": "cpp"
     }
 }

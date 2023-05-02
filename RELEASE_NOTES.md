@@ -1,3 +1,6 @@
+### 1.1.14
+* exposed Detector configurations
+
 ### 1.1.13
 * solvePnPRansac params exposed
 

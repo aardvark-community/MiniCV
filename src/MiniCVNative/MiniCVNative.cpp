@@ -218,7 +218,7 @@ void cvCornerSubPix(const cv::Mat img, const vector<Vec2d> corners) {
 	cornerSubPix(img, corners, Size(11, 11), Size(-1, -1), TermCriteria(cv::TermCriteria::EPS + cv::TermCriteria::MAX_ITER, 30, 0.001));
 }
 
-DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, int channels, int mode = FEATURE_MODE_AKAZE) {
+DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, int channels, int mode = FEATURE_MODE_AKAZE, void* config = nullptr) {
 	
 	int fmt;
 	int convert;
@@ -251,16 +251,40 @@ DllExport(DetectorResult*) cvDetectFeatures(char* data, int width, int height, i
 	switch (mode)
 	{
 	case FEATURE_MODE_AKAZE:
-		detector = cv::AKAZE::create();
+		if(config){
+			auto c = (AkazeConfig*)config;
+			detector = cv::AKAZE::create(c->DescriptorType, c->DescriptorSize, c->DescriptorChannels, c->Threshold, c->Octaves, c->OctaveLayers, c->Diffusivity);
+		}
+		else {
+			detector = cv::AKAZE::create();
+		}
 		break;
 	case FEATURE_MODE_ORB:
-		detector = cv::ORB::create();
+		if(config) {
+			auto c = (OrbConfig*)config;
+			detector = cv::ORB::create(c->FeatureCount, c->ScaleFactor, c->Levels, c->EdgeThreshold, c->FirstLevel, c->WTA_K, c->ScoreType, c->PatchSize, c->FastThreshold);
+		}
+		else {
+			detector = cv::ORB::create();
+		}
 		break;
 	case FEATURE_MODE_BRISK:
-		detector = cv::BRISK::create();
+		if(config) {
+			auto c = (BriskConfig*)config;
+			detector = cv::BRISK::create(c->Threshold, c->Octaves, c->PatternScale);
+		}
+		else {
+			detector = cv::BRISK::create();
+		}
 		break;
 	case FEATURE_MODE_SIFT:
-		detector = cv::SIFT::create();
+		if(config) {
+			auto c = (SiftConfig*)config;
+			detector = cv::SIFT::create(c->FeatureCount, c->OctaveLayers, c->ContrastThreshold, c->EdgeThreshold, c->Sigma, c->DescriptorType);
+		}
+		else {
+			detector = cv::SIFT::create(0, 3, 0.04, 10.0, 1.6, CV_8U);
+		}
 		break;
 	default:
 		return nullptr;
