@@ -42,7 +42,7 @@ fi
 ./.vcpkg/vcpkg/bootstrap-vcpkg.sh
 
 export VCPKG_NUGET_REPOSITORY="https://github.com/aardvark-community/MiniCV"
-./.vcpkg/vcpkg/vcpkg install OpenCV --triplet $VCPKG_TRIPLET 
+./.vcpkg/vcpkg/vcpkg install opencv --triplet $VCPKG_TRIPLET 
 
 rm -dfr src/MiniCVNative/build
 cmake -S src/MiniCVNative/ -B src/MiniCVNative/build $ARCH_FLAGS \
