@@ -1,3 +1,6 @@
+### 1.1.15
+* updated dependencies
+
 ### 1.1.14
 * exposed Detector configurations 
 
