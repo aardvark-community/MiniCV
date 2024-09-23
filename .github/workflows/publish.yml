@@ -28,16 +28,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: ./buildnative.sh x86_64
-      # - name: Install Dotnet 
-      #   uses: actions/setup-dotnet@v1
-      #   with:
-      #     dotnet-version: '6.0.100'
-      # - name: Restore Tools
-      #   run: dotnet tool restore
-      # - name: Restore
-      #   run: dotnet paket restore
-      # - name: Test
-      #   run: dotnet run --project src/Test/Test.fsproj
+      - name: Install Dotnet 
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: '8.0.401'
+      - name: Restore Tools
+        run: dotnet tool restore
+      - name: Restore
+        run: dotnet paket restore
+      - name: Test
+        run: dotnet run --project src/Test/Test.fsproj
       - name: Upload MacOS native libs
         uses: actions/upload-artifact@v4
         with:
