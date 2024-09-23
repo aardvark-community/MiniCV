@@ -3,3 +3,4 @@ Aardvark.Base
 Aardvark.Base.FSharp
 Aardvark.Base.Tensors
 Aardvark.Build
+Aardvark.PixImage.ImageSharp
