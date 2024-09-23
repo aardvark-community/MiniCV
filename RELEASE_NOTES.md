@@ -1,5 +1,5 @@
 ### 1.1.16
-* updated dependencies
+* updated dependencies.
 
 ### 1.1.15
 * updated dependencies
