@@ -108,7 +108,7 @@ jobs:
     runs-on: windows-latest
     steps:  
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
@@ -125,9 +125,9 @@ jobs:
         shell: cmd
         run: buildnative.cmd
       - name: Install Dotnet
-        uses: actions/setup-dotnet@v1
+        uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '6.0.100'
+          global-json-file: global.json
       - name: Restore Tools
         shell: cmd
         run: dotnet tool restore
@@ -153,7 +153,7 @@ jobs:
     runs-on: windows-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Download MacOS dependencies (x64)
         uses: actions/download-artifact@v4
         with:
