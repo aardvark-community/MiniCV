@@ -1,3 +1,6 @@
+### 1.1.17
+* workaround for https://stackoverflow.com/questions/78598141/first-stdmutexlock-crashes-in-application-built-with-latest-visual-studio
+
 ### 1.1.16
 * updated dependencies.
 

@@ -23,6 +23,8 @@ elseif(UNIX)
 endif()
 
 
+add_definitions(-D_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR )
+
 add_library(MiniCVNative SHARED MiniCVNative.h MiniCVNative.cpp ap3p.h ap3p.cpp aruco_nano.h fivepoint.h fivepoint.cpp)
 
 # include_directories(~/vcpkg/packages/ceres_arm64-osx/include)
