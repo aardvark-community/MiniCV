@@ -10,51 +10,61 @@ on:
 jobs:
   mac_x64:
     name: MacOS (x64)
-    runs-on: macos-14
+    runs-on: macos-15-intel
     steps:  
       - name: Checkout
-        uses: actions/checkout@v2 
+        uses: actions/checkout@v6 
+      - name: Install Mono
+        run: brew install mono
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
-          mono .config/nuget.exe
-          sources add
-          -source "https://nuget.pkg.github.com/aardvark-community/index.json"
-          -storepasswordincleartext
-          -name "GitHub"
-          -username "aardvark-community"
-          -password "${{ secrets.GITHUB_TOKEN }}"
+          dotnet nuget add source
+          "https://nuget.pkg.github.com/aardvark-community/index.json"
+          --name "GitHub"
+          --username "aardvark-community"
+          --password "${{ secrets.GITHUB_TOKEN }}"
+          --store-password-in-clear-text
       - name: Build Native Libraries
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
         run: ./buildnative.sh x86_64
       - name: Upload MacOS native libs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mac_x64
           path: libs/Native/MiniCV/mac/AMD64/
   mac_arm64:
     name: MacOS (arm64)
-    runs-on: macos-14
+    runs-on: macos-15
     steps:  
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
+      - name: Install Mono
+        run: brew install mono
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
-          mono .config/nuget.exe
-          sources add
-          -source "https://nuget.pkg.github.com/aardvark-community/index.json"
-          -storepasswordincleartext
-          -name "GitHub"
-          -username "aardvark-community"
-          -password "${{ secrets.GITHUB_TOKEN }}"
+          dotnet nuget add source
+          "https://nuget.pkg.github.com/aardvark-community/index.json"
+          --name "GitHub"
+          --username "aardvark-community"
+          --password "${{ secrets.GITHUB_TOKEN }}"
+          --store-password-in-clear-text
       - name: Build Native Libraries
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: ./buildnative.sh arm64
       - name: Upload MacOS native libs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mac_arm64
           path: libs/Native/MiniCV/mac/ARM64/
@@ -95,10 +105,11 @@ jobs:
   #         path: libs/Native/MiniCV/linux/AMD64/
   windows_x64:
     name: Windows (x64)
-    runs-on: windows-latest
+    # pinned like aardvark.optimization: the VS 2026 image breaks vcpkg builds
+    runs-on: windows-2022
     steps:  
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: 'Setup NuGet Credentials'
         shell: 'bash'
         run: >
@@ -115,7 +126,7 @@ jobs:
         shell: cmd
         run: buildnative.cmd
       - name: Install Dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
       - name: Restore Tools
@@ -128,7 +139,7 @@ jobs:
         shell: cmd
         run: dotnet run --project src\Test\Test.fsproj
       - name: Upload Windows native libs
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows_x64
           path: libs/Native/MiniCV/windows/AMD64/
@@ -141,16 +152,20 @@ jobs:
       #- linux_x64
       - mac_arm64
     runs-on: windows-latest
+    permissions:
+      id-token: write # enable GitHub OIDC token issuance for this job
+      contents: write
+      packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
       - name: Download MacOS dependencies (x64)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mac_x64
           path: libs/Native/MiniCV/mac/AMD64/
       - name: Download MacOS dependencies (arm64)
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mac_arm64
           path: libs/Native/MiniCV/mac/ARM64/
@@ -160,12 +175,12 @@ jobs:
       #     name: linux_x64
       #     path: libs/Native/MiniCV/linux/AMD64/
       - name: Download Windows dependencies
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: windows_x64
           path: libs/Native/MiniCV/windows/AMD64/
       - name: Install Dotnet
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
       - name: Restore Tools
@@ -179,7 +194,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: dotnet aardpack src\MiniCV.sln --notag
       - name: Upload Package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: packages
           path: bin\pack
@@ -188,8 +203,11 @@ jobs:
           NUGET_KEY: ${{ secrets.GITHUB_TOKEN }} 
         shell: cmd
         run: dotnet nuget push "bin\pack\*.nupkg" -k %NUGET_KEY% -s "https://nuget.pkg.github.com/aardvark-community/index.json" --skip-duplicate
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
       - name: NuGet
-        env:
-          NUGET_KEY: ${{ secrets.NUGET_KEY }}
         shell: cmd
-        run: dotnet nuget push "bin\pack\*.nupkg" -k %NUGET_KEY% -s "https://api.nuget.org/v3/index.json" --skip-duplicate
+        run: dotnet nuget push "bin\pack\*.nupkg" -k ${{steps.login.outputs.NUGET_API_KEY}} -s "https://api.nuget.org/v3/index.json" --skip-duplicate
