@@ -4,7 +4,7 @@
 cmd /C "rmdir /S /Q .vcpkg"
 
 git clone https://github.com/Microsoft/vcpkg.git ./.vcpkg/vcpkg --depth 1
-copy .vcpkg\vcpkg\triplets\community\x64-windows-static-md.cmake .vcpkg\vcpkg\triplets\community\x64-windows-static-md-rel.cmake
+copy .vcpkg\vcpkg\triplets\x64-windows-static-md.cmake .vcpkg\vcpkg\triplets\community\x64-windows-static-md-rel.cmake
 echo set(VCPKG_BUILD_TYPE release) >> .vcpkg\vcpkg\triplets\community\x64-windows-static-md-rel.cmake
 cmd /C ".vcpkg\vcpkg\bootstrap-vcpkg.bat -disableMetrics"
 
