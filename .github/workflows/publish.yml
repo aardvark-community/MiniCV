@@ -183,6 +183,8 @@ jobs:
       - name: Install Dotnet
         uses: actions/setup-dotnet@v5
         with:
+          # aardpack 1.0.22 runs on the net6.0 runtime
+          dotnet-version: 6.0.x
           global-json-file: global.json
       - name: Restore Tools
         run: dotnet tool restore
