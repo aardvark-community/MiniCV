@@ -939,8 +939,9 @@ module OpenCV =
         }
 
     let refinePnPLM (imgPoints : V2d[]) (worldPoints : V3d[]) (intern : M33d) (distortionCoeffs : float[]) (t : V3d) (r : V3d) =
-        let mutable tRes = Unchecked.defaultof<_>
-        let mutable rRes = Unchecked.defaultof<_>
+        // the native call refines in place: start from the given pose
+        let mutable tRes = t
+        let mutable rRes = r
             
         Native.cvRefinePnPLM(imgPoints, worldPoints, worldPoints.Length, intern, distortionCoeffs, &tRes, &rRes)
         let r = rRes

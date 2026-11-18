@@ -1,3 +1,6 @@
+### 1.1.19
+* fixed `refinePnPLM` (and the `...WithRefine LM` solvers): it started from a zero pose instead of the given one
+
 ### 1.1.18
 * removed unused Aardvark.PixImage.ImageSharp dependency
 * updated dependencies and build tooling
